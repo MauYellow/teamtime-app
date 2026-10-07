@@ -13,6 +13,8 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
         <Stack.Screen name="tutorial" options={{ animation: 'fade' }} />
+        <Stack.Screen name="scan-result" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="log-error" />
       </Stack>
     </GestureHandlerRootView>
   );

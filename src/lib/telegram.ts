@@ -1,6 +1,5 @@
-import { Platform } from 'react-native';
-
 import { APP_VERSION } from '@/config';
+import { DEVICE } from '@/lib/device';
 import { log } from '@/lib/log';
 import { getSession } from '@/lib/session';
 
@@ -23,6 +22,5 @@ export async function sendTelegram(text: string) {
 
 /** Messaggio di timbratura nel formato dell'app Thunkable. */
 export function scanTelegramText(name: string, locale: string, kind: 'Entrata' | 'Uscita', response: string) {
-  const device = Platform.OS === 'ios' ? 'Apple' : 'Android';
-  return `*Nome*: ${name} *Azienda*: ${locale} *Versione*: ${APP_VERSION} *Dispositivo*: ${device} *${kind}*: ${response}`;
+  return `*Nome*: ${name} *Azienda*: ${locale} *Versione*: ${APP_VERSION} *Dispositivo*: ${DEVICE} *${kind}*: ${response}`;
 }

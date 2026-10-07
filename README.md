@@ -33,6 +33,13 @@ Con una development build (serve per provare la migrazione dei dati della vecchi
 npm run android          # Windows/Mac
 npm run ios              # solo Mac
 ```
+Emulatore Android su questo PC: l'antivirus AVG intercetta le connessioni HTTPS (certificato "AVG Web/Mail Shield") e
+l'emulatore non lo riconosce, quindi Airtable non risponde ("Trust anchor for certification path not found"). Prova sul
+telefono, oppure escludi l'emulatore dalla scansione HTTPS di AVG.
+
+Tabella di test per le timbrature: **teamtime031** (QR di prova = testo `teamtime031`; Intercambio = yes, GPS = no).
+Non usare le tabelle dei clienti per le prove.
+
 Su Windows la build nativa fallisce se il percorso del progetto è lungo: compila da una copia in un percorso corto
 (es. `C:\tt`) oppure usa le build EAS.
 
@@ -46,8 +53,9 @@ npx expo-doctor
 ## Configurazione
 Valori che possono cambiare: `src/config.ts`.
 - `APP_VERSION` (oggi 4.0): confrontata con la riga `Versione` della tabella **Versione** su Airtable. Se su Airtable
-  c'è un numero maggiore, la Splash blocca e chiede di aggiornare. Alzare la riga su Airtable **solo dopo** che la nuova
-  versione è sugli store.
+  c'è un numero maggiore, la Splash blocca e chiede di aggiornare. **Attenzione**: la stessa riga la legge anche la
+  vecchia app Thunkable; alzarla blocca anche i telefoni che non possono aggiornare (iOS < 16.4, Android < 7).
+  Decisione aperta: vedi SPEC §15.1.
 - Le altre variabili (Telegram, recensioni) si leggono dalla tabella Versione cercando la colonna `Descrizione`.
 
 `ios/` e `android/` sono generate (Continuous Native Generation): non modificarle a mano, si configura tutto in `app.json`.

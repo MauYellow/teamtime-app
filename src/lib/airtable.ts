@@ -10,6 +10,8 @@ export type ListOptions = {
   filterByFormula?: string;
   sort?: { field: string; direction?: 'asc' | 'desc' }[];
   fields?: string[];
+  /** Vista da cui leggere (ne segue anche l'ordine delle righe). */
+  view?: string;
   pageSize?: number;
   /** Numero massimo di righe da leggere (default: tutte). */
   maxRecords?: number;
@@ -70,6 +72,7 @@ export async function listRecords<T>(table: string, options: ListOptions = {}): 
       params.set(`sort[${index}][direction]`, sort.direction ?? 'asc');
     });
     options.fields?.forEach((field) => params.append('fields[]', field));
+    if (options.view) params.set('view', options.view);
     if (options.pageSize) params.set('pageSize', String(options.pageSize));
     if (options.maxRecords) params.set('maxRecords', String(options.maxRecords));
     if (offset) params.set('offset', offset);
