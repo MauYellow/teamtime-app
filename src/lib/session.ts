@@ -1,0 +1,34 @@
+import { useSyncExternalStore } from 'react';
+
+import type { LocaleFields } from '@/lib/locali';
+import type { AppSettings } from '@/lib/settings';
+
+// Stato in memoria condiviso tra le schermate (equivalente delle "app variable" di Thunkable).
+
+export type Session = {
+  /** Variabili lette dalla tabella Versione. */
+  settings: AppSettings | null;
+  /** Record di Locali Approvati del locale del dipendente ("Row Object Locale"). */
+  locale: LocaleFields | null;
+};
+
+let state: Session = { settings: null, locale: null };
+const listeners = new Set<() => void>();
+
+export function getSession() {
+  return state;
+}
+
+export function updateSession(patch: Partial<Session>) {
+  state = { ...state, ...patch };
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function useSession() {
+  return useSyncExternalStore(subscribe, getSession);
+}
