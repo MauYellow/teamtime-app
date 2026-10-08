@@ -1,18 +1,16 @@
-import { APP_VERSION } from '@/config';
+import { APP_VERSION, TELEGRAM_BOT_KEY, TELEGRAM_CHANNEL_ID } from '@/config';
 import { DEVICE } from '@/lib/device';
 import { log } from '@/lib/log';
-import { getSession } from '@/lib/session';
 
 // Log su Telegram (canale dello sviluppatore), come nell'app originale. Non blocca mai l'app.
 
 export async function sendTelegram(text: string) {
-  const settings = getSession().settings;
-  if (!settings?.telegramBotKey || !settings.telegramChannelId) return;
+  if (!TELEGRAM_BOT_KEY || !TELEGRAM_CHANNEL_ID) return;
   try {
-    const response = await fetch(`https://api.telegram.org/bot${settings.telegramBotKey}/sendMessage`, {
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_KEY}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: settings.telegramChannelId, text, parse_mode: 'Markdown' }),
+      body: JSON.stringify({ chat_id: TELEGRAM_CHANNEL_ID, text, parse_mode: 'Markdown' }),
     });
     log(`Telegram: HTTP ${response.status}`);
   } catch (error) {

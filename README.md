@@ -22,6 +22,11 @@ cp .env.example .env     # poi inserisci i valori in .env
 |---|---|
 | `EXPO_PUBLIC_AIRTABLE_TOKEN` | token Airtable con lettura e scrittura sulla base Presenze |
 | `EXPO_PUBLIC_GEOCODE_API_KEY` | chiave geocode.maps.co (indirizzo del GPS) |
+| `EXPO_PUBLIC_BREVO_API_KEY` | chiave Brevo (registrazione azienda) |
+| `EXPO_PUBLIC_TELEGRAM_BOT_KEY` / `EXPO_PUBLIC_TELEGRAM_CHANNEL_ID` | log su Telegram |
+
+Le variabili `EXPO_PUBLIC_*` finiscono dentro l'app (come le chiavi nell'app Thunkable). Le altre (es. password di prova)
+restano sul PC.
 
 ## Provare l'app
 Con Expo Go (telefono, stessa rete Wi-Fi del PC):
@@ -57,11 +62,10 @@ npx expo-doctor
 
 ## Configurazione
 Valori che possono cambiare: `src/config.ts`.
-- `APP_VERSION` (oggi 4.0): confrontata con la riga `Versione` della tabella **Versione** su Airtable. Se su Airtable
-  c'è un numero maggiore, la Splash blocca e chiede di aggiornare. **Attenzione**: la stessa riga la legge anche la
-  vecchia app Thunkable; alzarla blocca anche i telefoni che non possono aggiornare (iOS < 16.4, Android < 7).
-  Decisione aperta: vedi SPEC §15.1.
-- Le altre variabili (Telegram, recensioni) si leggono dalla tabella Versione cercando la colonna `Descrizione`.
+- `APP_VERSION` (oggi 4.0): confrontata con la riga `Versione` del Google Sheet pubblico della nuova app
+  (`SETTINGS_SHEET_ID`). Se nel foglio c'è un numero maggiore, la Splash blocca e chiede di aggiornare. Alzarlo **solo
+  dopo** che la nuova versione è sugli store. Il foglio "TeamTime - App Settings" della vecchia app non va toccato.
+- Riga `Recensioni` del foglio: `yes` = dopo 40 aperture si propone la recensione.
 
 `ios/` e `android/` sono generate (Continuous Native Generation): non modificarle a mano, si configura tutto in `app.json`.
 

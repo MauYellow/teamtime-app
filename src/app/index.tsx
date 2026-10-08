@@ -6,13 +6,13 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
-import { APP_VERSION, CACHE_MAX_AGE_MS, SPLASH_MAX_ATTEMPTS, SPLASH_MIN_DURATION_MS, SPLASH_RETRY_DELAY_MS } from '@/config';
+import { APP_VERSION, SPLASH_MAX_ATTEMPTS, SPLASH_MIN_DURATION_MS, SPLASH_RETRY_DELAY_MS } from '@/config';
 import { loadCached, removeCache } from '@/lib/cache';
 import { fetchLocale, isYes, localeCacheKey } from '@/lib/locali';
 import { requestLocationPermission } from '@/lib/location';
 import { log } from '@/lib/log';
 import { updateSession } from '@/lib/session';
-import { fetchAppSettings } from '@/lib/settings';
+import { fetchAppSettings, type AppSettings } from '@/lib/settings';
 import { getEmployeeLocale, isFirstAccess } from '@/lib/storage';
 import { openStorePage } from '@/lib/store';
 import { sendTelegram } from '@/lib/telegram';
@@ -68,13 +68,20 @@ export default function SplashScreen() {
       }
 
       try {
-        // Le variabili (tabella Versione) cambiano di rado: si rileggono al massimo ogni CACHE_MAX_AGE_MS (SPEC §15.2).
-        const settings = await loadCached('variabili', CACHE_MAX_AGE_MS, fetchAppSettings, () =>
-          withRetries('variabili', fetchAppSettings, retryMessage)
-        );
+        // Impostazioni dal Google Sheet (gratuito, niente Airtable). Se il foglio non risponde si usa l'ultima copia
+        // salvata; se non c'è, si prosegue senza controllo versione: non è un motivo per bloccare le timbrature.
+        const settings = await loadCached<AppSettings | null>('variabili', fetchAppSettings, async () => {
+          try {
+            return await fetchAppSettings();
+          } catch (error) {
+            log(`Impostazioni non disponibili: ${String(error)}`);
+            return null;
+          }
+        });
+        if (!settings) removeCache('variabili');
         updateSession({ settings });
-        log(`Variabili caricate: versione pubblicata ${settings.latestVersion ?? 'n.d.'}`);
-        if (settings.latestVersion !== null && settings.latestVersion > APP_VERSION) {
+        log(`Variabili caricate: versione pubblicata ${settings?.latestVersion ?? 'n.d.'}`);
+        if (settings?.latestVersion != null && settings.latestVersion > APP_VERSION) {
           show({ kind: 'update' });
           return;
         }
@@ -86,7 +93,7 @@ export default function SplashScreen() {
           const key = localeCacheKey(localeName);
           // I dati del locale (GPS, Intercambio, Max Rows) si rileggono a ogni apertura, così un cambio su Airtable vale
           // subito; la copia salvata serve solo se Airtable non risponde.
-          const locale = await loadCached(key, 0, load, () =>
+          const locale = await loadCached(key, load, () =>
             withRetries('info locale', load, retryMessage)
           );
           // Un locale non trovato non si ricorda: al prossimo avvio si riprova.

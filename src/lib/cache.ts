@@ -2,7 +2,7 @@ import Storage from 'expo-sqlite/kv-store';
 
 import { log } from '@/lib/log';
 
-// Dati di Airtable ricordati sul telefono per risparmiare chiamate API (SPEC §15.2).
+// Copie sul telefono dei dati letti all'avvio, usate quando la rete o Airtable non rispondono.
 
 type Entry<T> = { savedAt: number; value: T };
 
@@ -27,17 +27,15 @@ export function removeCache(key: string) {
 
 
 /**
- * Carica un dato con la cache: se è recente non chiama Airtable; se è vecchio prova a rileggerlo e, se Airtable non
- * risponde, usa quello vecchio. Solo se non c'è nulla in cache si usa `loadWithRetries` (i tentativi della Splash).
+ * Rilegge un dato a ogni apertura e ne salva una copia sul telefono: se la lettura fallisce si usa l'ultima copia
+ * salvata. Solo se non c'è nessuna copia si usa `loadFirstTime` (es. i tentativi ripetuti della Splash).
  */
 export async function loadCached<T>(
   key: string,
-  maxAgeMs: number,
   load: () => Promise<T>,
-  loadWithRetries: () => Promise<T>
+  loadFirstTime: () => Promise<T>
 ): Promise<T> {
   const entry = read<T>(key);
-  if (entry && Date.now() - entry.savedAt < maxAgeMs) return entry.value;
   if (entry) {
     try {
       const value = await load();
@@ -48,7 +46,7 @@ export async function loadCached<T>(
       return entry.value;
     }
   }
-  const value = await loadWithRetries();
+  const value = await loadFirstTime();
   writeCache(key, value);
   return value;
 }

@@ -15,22 +15,23 @@ export const AIRTABLE_TOKEN = process.env.EXPO_PUBLIC_AIRTABLE_TOKEN ?? '';
 /** Chiave di geocode.maps.co (indirizzo dalla posizione GPS). Sta in .env. */
 export const GEOCODE_API_KEY = process.env.EXPO_PUBLIC_GEOCODE_API_KEY ?? '';
 
-/** Nomi delle righe della tabella Versione (colonna Descrizione) usate come variabili. */
-export const SETTING_KEYS = {
-  version: 'Versione',
-  reviewsEnabled: 'Impostazione di recensioni obbligatorie: yes= attivo',
-  telegramChannelId: 'Channel Id Telegram',
-  telegramBotKey: 'Bot Key Telegram',
-} as const;
+/** Log su Telegram (canale dello sviluppatore). Stanno in .env; se mancano, i log Telegram non partono. */
+export const TELEGRAM_BOT_KEY = process.env.EXPO_PUBLIC_TELEGRAM_BOT_KEY ?? '';
+export const TELEGRAM_CHANNEL_ID = process.env.EXPO_PUBLIC_TELEGRAM_CHANNEL_ID ?? '';
+
+/**
+ * Google Sheet PUBBLICO (chiunque abbia il link: visualizzatore) con le impostazioni della nuova app: colonna A = nome,
+ * colonna B = valore; righe "Versione" e "Recensioni" (yes/no). Senza chiavi: le chiavi stanno in .env.
+ * È diverso dal foglio "TeamTime - App Settings" della vecchia app Thunkable, che resta com'è (SPEC §1.2 e §15.1).
+ * Vuoto = controllo versione disattivato.
+ */
+export const SETTINGS_SHEET_ID = '';
+/** Nomi delle righe del foglio impostazioni (colonna A). */
+export const SETTING_KEYS = { version: 'Versione', reviewsEnabled: 'Recensioni' } as const;
 
 /** Splash: tentativi e attesa tra un tentativo e l'altro quando Airtable non risponde (come l'originale). */
 export const SPLASH_MAX_ATTEMPTS = 5;
 export const SPLASH_RETRY_DELAY_MS = 10_000;
-/**
- * Per quanto tempo si usano le variabili della tabella Versione salvate sul telefono senza richiederle ad Airtable
- * (SPEC §15.2). Una nuova versione obbligatoria o un cambio delle chiavi Telegram arriva sui telefoni entro questo tempo.
- */
-export const CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 /** Durata minima della Splash (ms). */
 export const SPLASH_MIN_DURATION_MS = 1500;
