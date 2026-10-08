@@ -15,6 +15,12 @@ export const AIRTABLE_TOKEN = process.env.EXPO_PUBLIC_AIRTABLE_TOKEN ?? '';
 /** Chiave di geocode.maps.co (indirizzo dalla posizione GPS). Sta in .env. */
 export const GEOCODE_API_KEY = process.env.EXPO_PUBLIC_GEOCODE_API_KEY ?? '';
 
+/**
+ * Chiave Brevo (contatti delle aziende che chiedono il QR Code). Sta in .env ma finisce dentro l'app, come in Thunkable:
+ * da spostare su un server prima o poi (SPEC §15.5).
+ */
+export const BREVO_API_KEY = process.env.EXPO_PUBLIC_BREVO_API_KEY ?? '';
+
 /** Log su Telegram (canale dello sviluppatore). Stanno in .env; se mancano, i log Telegram non partono. */
 export const TELEGRAM_BOT_KEY = process.env.EXPO_PUBLIC_TELEGRAM_BOT_KEY ?? '';
 export const TELEGRAM_CHANNEL_ID = process.env.EXPO_PUBLIC_TELEGRAM_CHANNEL_ID ?? '';

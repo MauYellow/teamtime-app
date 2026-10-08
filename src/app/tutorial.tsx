@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
@@ -43,10 +43,7 @@ export default function TutorialScreen() {
 
         {last ? (
           <View style={styles.actions}>
-            <AppButton
-              title="Registra azienda"
-              onPress={() => Alert.alert('In arrivo', 'La registrazione azienda arriva nella tappa 4.')}
-            />
+            <AppButton title="Registra azienda" onPress={() => router.push('/primi-passi')} />
             <Text style={styles.or}>Oppure, se l&apos;azienda è stata già registrata</Text>
             <AppButton title="Continua come dipendente" onPress={() => router.replace('/accesso')} />
           </View>

@@ -5,27 +5,30 @@ import { Modal, Platform, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '@/components/AppButton';
 import { colors, radius, spacing } from '@/theme';
 
+type PickOptions = { mode: 'date' | 'time'; title: string; initial?: Date; minimumDate?: Date };
+
 /**
- * Selettore dell'orario ("Time_Input.Launch Picker" di Thunkable).
- * Uso: `const { pickTime, picker } = useTimePicker();` → `{picker}` nella schermata e `await pickTime(titolo)`,
- * che restituisce l'orario scelto oppure null se l'utente annulla.
+ * Selettore di orario o giorno ("Time_Input / Date_Input.Launch Picker" di Thunkable).
+ * Uso: `const { pickTime, pickDate, picker } = useTimePicker();` → `{picker}` nella schermata e
+ * `await pickTime(titolo)` / `await pickDate(titolo)`, che restituiscono il valore scelto oppure null se si annulla.
  * Android: finestra nativa; iOS: rotella in un pannello con Annulla / Conferma.
  */
 export function useTimePicker() {
-  const [title, setTitle] = useState<string | null>(null);
+  const [request, setRequest] = useState<PickOptions | null>(null);
   const [value, setValue] = useState(new Date());
   const resolver = useRef<((value: Date | null) => void) | null>(null);
   const pending = useRef<Date | null>(null);
 
-  const pickTime = useCallback((title: string) => {
-    const initial = new Date();
+  const pick = useCallback((options: PickOptions) => {
+    const initial = options.initial ?? new Date();
     if (Platform.OS === 'android') {
       return new Promise<Date | null>((resolve) => {
         DateTimePickerAndroid.open({
           value: initial,
-          mode: 'time',
+          mode: options.mode,
           is24Hour: true,
-          title,
+          title: options.title,
+          minimumDate: options.minimumDate,
           onValueChange: (_, date) => resolve(date),
           onDismiss: () => resolve(null),
         });
@@ -35,14 +38,23 @@ export function useTimePicker() {
     return new Promise<Date | null>((resolve) => {
       resolver.current = resolve;
       pending.current = null;
-      setTitle(title);
+      setRequest(options);
     });
   }, []);
+
+  const pickTime = useCallback(
+    (title: string, initial?: Date) => pick({ mode: 'time', title, initial }),
+    [pick]
+  );
+  const pickDate = useCallback(
+    (title: string, initial?: Date, minimumDate?: Date) => pick({ mode: 'date', title, initial, minimumDate }),
+    [pick]
+  );
 
   // Si risponde solo a pannello chiuso (onDismiss): un Alert aperto durante la chiusura non comparirebbe.
   const close = (result: Date | null) => {
     pending.current = result;
-    setTitle(null);
+    setRequest(null);
   };
   const resolve = () => {
     resolver.current?.(pending.current);
@@ -52,17 +64,18 @@ export function useTimePicker() {
   const picker =
     Platform.OS === 'ios' ? (
       <Modal
-        visible={title !== null}
+        visible={request !== null}
         transparent
         animationType="slide"
         onRequestClose={() => close(null)}
         onDismiss={resolve}>
         <View style={styles.backdrop}>
           <View style={styles.sheet}>
-            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.title}>{request?.title}</Text>
             <DateTimePicker
               value={value}
-              mode="time"
+              mode={request?.mode ?? 'time'}
+              minimumDate={request?.minimumDate}
               display="spinner"
               locale="it-IT"
               onValueChange={(_, date) => setValue(date)}
@@ -76,7 +89,7 @@ export function useTimePicker() {
       </Modal>
     ) : null;
 
-  return { pickTime, picker };
+  return { pickTime, pickDate, picker };
 }
 
 const styles = StyleSheet.create({

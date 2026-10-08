@@ -154,8 +154,7 @@ function NewEmployee() {
         "- L'azienda non è stata ancora registrata.",
       { cancel: 'Chiudi', confirm: 'Registra' }
     );
-    // TODO tappa 4: portare a Primi Passi (registrazione azienda). Per ora si apre il Tutorial.
-    if (goRegister) router.push('/tutorial');
+    if (goRegister) router.push('/primi-passi');
   };
 
   // [miglioria] Nell'elenco solo i locali attivi (il QR di un locale non attivo viene comunque riconosciuto).
