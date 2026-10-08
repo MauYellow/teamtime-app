@@ -41,12 +41,23 @@ export const SPLASH_RETRY_DELAY_MS = 10_000;
 export const SPLASH_MIN_DURATION_MS = 1500;
 
 /**
- * Identificativi sugli store: DA SOSTITUIRE con quelli reali prima della pubblicazione
- * (insieme a ios.bundleIdentifier e android.package in app.json).
+ * Identificativi dell'app pubblicata sugli store (dai link della tabella Supporto).
+ * Prima della pubblicazione vanno messi anche in app.json (ios.bundleIdentifier e android.package).
  */
-// Valori dell'app pubblicata (dai link della tabella Supporto).
 export const ANDROID_PACKAGE = 'com.gmail.mauriziopolverini89.teamtime';
 export const IOS_APP_STORE_ID = '6443974498';
 
 /** Assistenza WhatsApp (schermata Conferma e Assistenza). */
 export const WHATSAPP_SUPPORT_URL = 'https://wa.me/393931367530';
+
+/**
+ * "Vuoi far rimuovere i tuoi dati aziendali? Contattaci" (Registro Online). [interpretazione] il link originale è
+ * troncato negli screenshot: si usa il modulo di assistenza della tabella Supporto.
+ */
+export const DATA_REMOVAL_FORM_URL = 'https://airtable.com/shr0Bdu0Ye9GXvbqq';
+
+/** Area manager → "Il tuo piano": link legali e gestionale web. */
+export const PRIVACY_URL = 'https://www.teamtimeapp.it/privacy';
+/** EULA standard di Apple (l'originale lo apriva su iOS). */
+export const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+export const PORTAL_URL = 'https://www.teamtimeapp.it/login';

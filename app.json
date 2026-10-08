@@ -48,7 +48,9 @@
         {
           "locationWhenInUsePermission": "Se la tua azienda lo richiede, TeamTime registra la posizione al momento della timbratura."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

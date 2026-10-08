@@ -11,6 +11,7 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@react-native-community/datetimepicker": "9.1.0",
     "expo": "~57.0.26",
     "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.20",
@@ -23,6 +24,7 @@
     "expo-network": "~57.0.2",
     "expo-router": "~57.0.24",
     "expo-secure-store": "~57.0.4",
+    "expo-sharing": "~57.0.22",
     "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
@@ -37,7 +39,8 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-webview": "13.16.1",
-    "react-native-worklets": "0.10.1"
+    "react-native-worklets": "0.10.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

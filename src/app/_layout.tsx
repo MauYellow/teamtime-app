@@ -15,6 +15,8 @@ export default function RootLayout() {
         <Stack.Screen name="tutorial" options={{ animation: 'fade' }} />
         <Stack.Screen name="scan-result" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="log-error" />
+        <Stack.Screen name="informativa-cookie" />
+        <Stack.Screen name="(manager)" options={{ gestureEnabled: false }} />
       </Stack>
     </GestureHandlerRootView>
   );

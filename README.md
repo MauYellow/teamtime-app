@@ -50,6 +50,9 @@ telefono, oppure escludi l'emulatore dalla scansione HTTPS di AVG.
 Tabella di test per le timbrature: **teamtime031** (QR di prova = testo `teamtime031`; Intercambio = yes, GPS = no).
 Non usare le tabelle dei clienti per le prove.
 
+Area manager di prova: Registro Online con `teamtime031` (password in `.env`, variabile
+`PASSWORD_DASHBOARD_TEAMTIME031`, solo per le prove sul PC: non finisce nell'app).
+
 Su Windows la build nativa fallisce se il percorso del progetto è lungo: compila da una copia in un percorso corto
 (es. `C:\tt`) oppure usa le build EAS.
 
@@ -64,7 +67,8 @@ npx expo-doctor
 Valori che possono cambiare: `src/config.ts`.
 - `APP_VERSION` (oggi 4.0): confrontata con la riga `Versione` della scheda della nuova app nel file
   "TeamTime - App Settings", pubblicata sul web come CSV (`SETTINGS_CSV_URL`). Se nel foglio c'è un numero maggiore, la Splash blocca e chiede di aggiornare. Alzarlo **solo
-  dopo** che la nuova versione è sugli store. La prima scheda (vecchia app) non va toccata.
+  dopo** che la nuova versione è sugli store. **La prima scheda (vecchia app) non va mai toccata**, in particolare non
+  alzare "Versione App": bloccherebbe i telefoni che non possono installare la nuova app (SPEC §15.1).
 - `REVIEW_EVERY_SCANS` (20): ogni 20 timbrature riuscite (entrate + uscite) compare "Ti piace TeamTime?".
   "Ok" apre lo store e non lo chiede più; "Non ora" riparte da zero.
 
