@@ -8,7 +8,8 @@ const KEYS = {
   locale: 'locale', // locale di appartenenza (es. teamtime022)
   activities: 'ultimeAttivita', // JSON di Activity[]
   firstAccess: 'primoAccesso', // 'false' dopo la prima apertura di Accesso Dipendenti
-  reviewCounter: 'contatoreRecensioni',
+  reviewScans: 'scanPerRecensione', // scansioni riuscite dall'ultima richiesta di recensione
+  reviewDone: 'recensioneFatta', // 'true' dopo "Ok": non si chiede più
 } as const;
 
 const SECURE_KEYS = {
@@ -89,12 +90,20 @@ export function setFirstAccessDone() {
   Storage.setItemSync(KEYS.firstAccess, 'false');
 }
 
-export function getReviewCounter() {
-  return Number(read(KEYS.reviewCounter)) || 0;
+export function getReviewScans() {
+  return Number(read(KEYS.reviewScans)) || 0;
 }
 
-export function setReviewCounter(value: number) {
-  Storage.setItemSync(KEYS.reviewCounter, String(value));
+export function setReviewScans(value: number) {
+  Storage.setItemSync(KEYS.reviewScans, String(value));
+}
+
+export function isReviewDone() {
+  return read(KEYS.reviewDone) === 'true';
+}
+
+export function setReviewDone() {
+  Storage.setItemSync(KEYS.reviewDone, 'true');
 }
 
 /** Imposta un valore solo se la chiave è ancora vuota (usato dalla migrazione). */

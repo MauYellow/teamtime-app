@@ -1,6 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import * as StoreReview from 'expo-store-review';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -21,40 +20,14 @@ import {
   registerExit,
   SCAN_MESSAGES,
 } from '@/lib/scan';
-import { getSession } from '@/lib/session';
 import {
   clearActivities,
   getActivities,
   getEmployeeLocale,
   getEmployeeName,
-  getReviewCounter,
-  setReviewCounter,
   type Activity,
 } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
-
-/** Aperture della Home dopo cui si propone la recensione (CounterRecensioni1 di Thunkable). */
-const REVIEW_AFTER_OPENINGS = 40;
-
-/**
- * [miglioria] Recensione: l'originale dopo 40 aperture mostrava un alert che obbligava a recensire (vietato dagli store).
- * Ora si chiede il prompt nativo, non bloccante, solo se la variabile su Airtable lo prevede.
- */
-async function countOpeningForReview() {
-  const counter = getReviewCounter() + 1;
-  log(`Numero accessi: ${counter}`);
-  if (counter < REVIEW_AFTER_OPENINGS) {
-    setReviewCounter(counter);
-    return;
-  }
-  setReviewCounter(0);
-  if (!getSession().settings?.reviewsEnabled) return;
-  try {
-    if (await StoreReview.hasAction()) await StoreReview.requestReview();
-  } catch (error) {
-    log(`Recensione non richiesta: ${String(error)}`);
-  }
-}
 
 // Home del dipendente (SPEC §4): dati del dipendente, Registra Entrata / Uscita, ultime attività.
 export default function HomeScreen() {
@@ -72,10 +45,6 @@ export default function HomeScreen() {
 
   // Rilegge i dati ogni volta che la schermata torna visibile (es. dopo Scan Result o Accesso Dipendenti).
   useFocusEffect(reload);
-
-  useEffect(() => {
-    countOpeningForReview();
-  }, []);
 
   const lastIsEntry = activities[0]?.type === 'Entrata';
 

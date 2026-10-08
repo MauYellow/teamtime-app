@@ -12,6 +12,7 @@ import { DEVICE } from '@/lib/device';
 import { fetchLocale, isYes, type LocaleFields } from '@/lib/locali';
 import { getCurrentAddress } from '@/lib/location';
 import { log } from '@/lib/log';
+import { countScanForReview } from '@/lib/review';
 import { getSession } from '@/lib/session';
 import { addActivity, getActivities, getEmployeeName, getOldestId, setOldestId } from '@/lib/storage';
 import { scanTelegramText, sendTelegram } from '@/lib/telegram';
@@ -175,6 +176,7 @@ export async function registerEntry(table: string, maxRows: number, onStatus: Sc
   onStatus('Salvataggio dati nel dispositivo..');
   addActivity({ locale: table, date: isoDate(now), type: 'Entrata', time });
   log(`Salvataggio nel dispositivo: ${table} - Entrata - ${time}`);
+  countScanForReview();
   onStatus('Completato');
   return SCAN_MESSAGES.ok;
 }
@@ -230,6 +232,7 @@ export async function registerExit(table: string, onStatus: ScanStatus): Promise
 
   onStatus('Salvataggio dati nel dispositivo..');
   addActivity({ locale: table, date: isoDate(now), type: 'Uscita', time });
+  countScanForReview();
   onStatus('Completato');
   return { kind: 'done', message: SCAN_MESSAGES.ok };
 }

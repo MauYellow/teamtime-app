@@ -21,13 +21,17 @@ export const TELEGRAM_CHANNEL_ID = process.env.EXPO_PUBLIC_TELEGRAM_CHANNEL_ID ?
 
 /**
  * Impostazioni della nuova app: scheda del file "TeamTime - App Settings" PUBBLICATA SUL WEB in formato CSV
- * (File → Condividi → Pubblica sul web → solo quella scheda → CSV). Colonna A = nome, colonna B = valore; righe
- * "Versione" e "Recensioni" (yes/no). Il file resta privato: le chiavi nelle altre schede non diventano pubbliche.
+ * (File → Condividi → Pubblica sul web → solo quella scheda → CSV). Colonna A = nome, colonna B = valore; riga
+ * "Versione" (la riga "Recensioni" non è più usata). Il file resta privato: le chiavi nelle altre schede non diventano pubbliche.
  * La scheda della vecchia app Thunkable resta com'è (SPEC §1.2 e §15.1). Vuoto = controllo versione disattivato.
  */
-export const SETTINGS_CSV_URL = '';
+export const SETTINGS_CSV_URL =
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vTMrLJRGThz5emH7D0Awd_fIo3sU0VJyRfdyIcaksrSpx8J8d233A-qxF1k3y7iw4A_tv0g1pIf8qS-/pub?gid=1859409346&single=true&output=csv';
 /** Nomi delle righe del foglio impostazioni (colonna A). */
-export const SETTING_KEYS = { version: 'Versione', reviewsEnabled: 'Recensioni' } as const;
+export const SETTING_KEYS = { version: 'Versione' } as const;
+
+/** Ogni quante scansioni riuscite (entrate + uscite) si chiede una recensione. Per provarla si può abbassare. */
+export const REVIEW_EVERY_SCANS = 20;
 
 /** Splash: tentativi e attesa tra un tentativo e l'altro quando Airtable non risponde (come l'originale). */
 export const SPLASH_MAX_ATTEMPTS = 5;
@@ -40,8 +44,9 @@ export const SPLASH_MIN_DURATION_MS = 1500;
  * Identificativi sugli store: DA SOSTITUIRE con quelli reali prima della pubblicazione
  * (insieme a ios.bundleIdentifier e android.package in app.json).
  */
-export const ANDROID_PACKAGE = 'com.teamtime.dasostituire';
-export const IOS_APP_STORE_ID = '';
+// Valori dell'app pubblicata (dai link della tabella Supporto).
+export const ANDROID_PACKAGE = 'com.gmail.mauriziopolverini89.teamtime';
+export const IOS_APP_STORE_ID = '6443974498';
 
 /** Assistenza WhatsApp (schermata Conferma e Assistenza). */
 export const WHATSAPP_SUPPORT_URL = 'https://wa.me/393931367530';

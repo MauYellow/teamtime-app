@@ -6,13 +6,12 @@ import { SETTING_KEYS, SETTINGS_CSV_URL } from '@/config';
 export type AppSettings = {
   /** Ultima versione pubblicata (null se manca: il controllo viene saltato). */
   latestVersion: number | null;
-  reviewsEnabled: boolean;
 };
 
 /** Oltre questo tempo si prosegue senza il foglio, per non tenere ferma la Splash. */
 const SETTINGS_TIMEOUT_MS = 8000;
 
-const EMPTY: AppSettings = { latestVersion: null, reviewsEnabled: false };
+const EMPTY: AppSettings = { latestVersion: null };
 
 /** Righe di un CSV semplice (valori eventualmente tra virgolette, con "" per le virgolette interne). */
 function parseCsv(text: string) {
@@ -64,6 +63,5 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const version = Number(String(value(SETTING_KEYS.version) ?? '').replace(',', '.'));
   return {
     latestVersion: Number.isFinite(version) && version > 0 ? version : null,
-    reviewsEnabled: value(SETTING_KEYS.reviewsEnabled)?.toLowerCase() === 'yes',
   };
 }

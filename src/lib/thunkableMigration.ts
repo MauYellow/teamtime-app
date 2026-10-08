@@ -25,7 +25,6 @@ const LEGACY = {
   locale: 'Locale',
   activities: 'ListaDipendenteOrari',
   firstAccess: 'PrimoAccesso',
-  reviewCounter: 'CounterRecensioni1',
   managerLocale: 'Accesso_Locale',
   managerPassword: 'Accesso_Password',
 } as const;
@@ -87,8 +86,6 @@ export async function migrateThunkableData() {
   const firstAccess = decodeText(lookup(store, LEGACY.firstAccess));
   if (firstAccess === 'false') setIfEmpty('firstAccess', 'false');
 
-  const counter = Number(decodeText(lookup(store, LEGACY.reviewCounter)));
-  if (Number.isFinite(counter) && counter > 0) setIfEmpty('reviewCounter', String(counter));
 
   const legacyList = decode(lookup(store, LEGACY.activities));
   if (Array.isArray(legacyList) && getActivities().length === 0) {
