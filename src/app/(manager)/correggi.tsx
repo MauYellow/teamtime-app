@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppButton } from '@/components/AppButton';
 import { BrandTitle } from '@/components/BrandTitle';
 import { useTimePicker } from '@/components/TimePicker';
 import { formatTime } from '@/lib/activities';
@@ -29,13 +28,13 @@ export default function CorreggiScreen() {
       setRows(await fetchOpenPresenze(table));
     } catch (error) {
       log(`Modifica Orari: errore ${String(error)}`);
-      Alert.alert('Errore!', 'Lista non caricata: controlla la connessione e premi Aggiorna.');
+      Alert.alert('Errore!', 'Lista non caricata: controlla la connessione e trascina la lista in basso per riprovare.');
     } finally {
       setLoading(false);
     }
   }, [table]);
 
-  // [miglioria] la lista si carica da sola all'apertura (l'originale chiedeva di premere "Aggiorna").
+  // [miglioria] la lista si carica da sola all'apertura e si aggiorna trascinandola in basso: niente bottone "Aggiorna".
   useFocusEffect(
     useCallback(() => {
       load();
@@ -107,7 +106,7 @@ export default function CorreggiScreen() {
       />
       <View style={styles.footer}>
         <Text style={styles.now}>Ora attuale: {now}</Text>
-        <AppButton title="Aggiorna" onPress={load} loading={loading} />
+        <Text style={styles.refreshHint}>Trascina la lista verso il basso per aggiornarla</Text>
       </View>
       {picker}
     </SafeAreaView>
@@ -141,6 +140,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 16, fontWeight: '600', color: colors.text },
   date: { fontSize: 13, color: colors.muted, marginTop: 2 },
   time: { fontSize: 16, fontWeight: '600', color: colors.primary },
-  footer: { padding: spacing.md, gap: spacing.sm },
-  now: { textAlign: 'center', color: colors.muted },
+  footer: { padding: spacing.md, gap: spacing.xs },
+  now: { textAlign: 'center', color: colors.text, fontWeight: '600' },
+  refreshHint: { textAlign: 'center', color: colors.muted, fontSize: 12 },
 });
