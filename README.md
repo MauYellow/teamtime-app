@@ -72,3 +72,5 @@ Valori che possono cambiare: `src/config.ts`.
 - [ ] Migrazione dei dati della vecchia app (`src/lib/thunkableMigration.ts`): verificare su Android e iOS con un
       telefono che ha la vecchia app installata (chiavi e formato dei valori del Local Storage di Thunkable).
 - [ ] Icona 1024×1024 e splash definitivi.
+- [ ] Da decidere insieme: riduzione delle chiamate API (SPEC §15.2), log e Sentry (§15.3), riga Versione e telefoni
+      vecchi (§15.1).
