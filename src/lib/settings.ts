@@ -1,6 +1,6 @@
-import { SETTING_KEYS, SETTINGS_SHEET_ID } from '@/config';
+import { SETTING_KEYS, SETTINGS_CSV_URL } from '@/config';
 
-// Impostazioni della nuova app da un Google Sheet pubblico (colonna A = nome, colonna B = valore). Vedi SPEC §1.2.
+// Impostazioni della nuova app da una scheda Google Sheet pubblicata sul web (colonna A = nome, colonna B = valore). Vedi SPEC §1.2.
 // Si legge senza chiavi e senza chiamate ad Airtable.
 
 export type AppSettings = {
@@ -45,8 +45,8 @@ function parseCsv(text: string) {
 }
 
 export async function fetchAppSettings(): Promise<AppSettings> {
-  if (!SETTINGS_SHEET_ID) return EMPTY;
-  const url = `https://docs.google.com/spreadsheets/d/${SETTINGS_SHEET_ID}/export?format=csv`;
+  if (!SETTINGS_CSV_URL) return EMPTY;
+  const url = SETTINGS_CSV_URL;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SETTINGS_TIMEOUT_MS);
   let text: string;

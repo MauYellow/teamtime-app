@@ -20,12 +20,12 @@ export const TELEGRAM_BOT_KEY = process.env.EXPO_PUBLIC_TELEGRAM_BOT_KEY ?? '';
 export const TELEGRAM_CHANNEL_ID = process.env.EXPO_PUBLIC_TELEGRAM_CHANNEL_ID ?? '';
 
 /**
- * Google Sheet PUBBLICO (chiunque abbia il link: visualizzatore) con le impostazioni della nuova app: colonna A = nome,
- * colonna B = valore; righe "Versione" e "Recensioni" (yes/no). Senza chiavi: le chiavi stanno in .env.
- * È diverso dal foglio "TeamTime - App Settings" della vecchia app Thunkable, che resta com'è (SPEC §1.2 e §15.1).
- * Vuoto = controllo versione disattivato.
+ * Impostazioni della nuova app: scheda del file "TeamTime - App Settings" PUBBLICATA SUL WEB in formato CSV
+ * (File → Condividi → Pubblica sul web → solo quella scheda → CSV). Colonna A = nome, colonna B = valore; righe
+ * "Versione" e "Recensioni" (yes/no). Il file resta privato: le chiavi nelle altre schede non diventano pubbliche.
+ * La scheda della vecchia app Thunkable resta com'è (SPEC §1.2 e §15.1). Vuoto = controllo versione disattivato.
  */
-export const SETTINGS_SHEET_ID = '';
+export const SETTINGS_CSV_URL = '';
 /** Nomi delle righe del foglio impostazioni (colonna A). */
 export const SETTING_KEYS = { version: 'Versione', reviewsEnabled: 'Recensioni' } as const;
 

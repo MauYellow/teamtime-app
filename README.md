@@ -62,9 +62,9 @@ npx expo-doctor
 
 ## Configurazione
 Valori che possono cambiare: `src/config.ts`.
-- `APP_VERSION` (oggi 4.0): confrontata con la riga `Versione` del Google Sheet pubblico della nuova app
-  (`SETTINGS_SHEET_ID`). Se nel foglio c'è un numero maggiore, la Splash blocca e chiede di aggiornare. Alzarlo **solo
-  dopo** che la nuova versione è sugli store. Il foglio "TeamTime - App Settings" della vecchia app non va toccato.
+- `APP_VERSION` (oggi 4.0): confrontata con la riga `Versione` della scheda della nuova app nel file
+  "TeamTime - App Settings", pubblicata sul web come CSV (`SETTINGS_CSV_URL`). Se nel foglio c'è un numero maggiore, la Splash blocca e chiede di aggiornare. Alzarlo **solo
+  dopo** che la nuova versione è sugli store. La prima scheda (vecchia app) non va toccata.
 - Riga `Recensioni` del foglio: `yes` = dopo 40 aperture si propone la recensione.
 
 `ios/` e `android/` sono generate (Continuous Native Generation): non modificarle a mano, si configura tutto in `app.json`.
