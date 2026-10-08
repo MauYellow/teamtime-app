@@ -28,6 +28,11 @@ Con Expo Go (telefono, stessa rete Wi-Fi del PC):
 ```bash
 npx expo start --go
 ```
+Usa sempre `--go`: senza, Expo mostra il QR per la development build e Expo Go risponde "Something went wrong".
+Telefono e PC devono potersi vedere in rete: le reti ospiti (hotel, uffici, "Guest") di solito lo impediscono. In quel
+caso collega il PC all'hotspot del telefono e rilancia il comando. Il tunnel (`npx expo start --go --tunnel`) è
+un'alternativa, ma su questo PC non si è collegato.
+
 Con una development build (serve per provare la migrazione dei dati della vecchia app):
 ```bash
 npm run android          # Windows/Mac
