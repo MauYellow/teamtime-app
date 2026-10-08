@@ -6,8 +6,9 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
-import { APP_VERSION, SPLASH_MAX_ATTEMPTS, SPLASH_MIN_DURATION_MS, SPLASH_RETRY_DELAY_MS } from '@/config';
-import { fetchLocale, isYes } from '@/lib/locali';
+import { APP_VERSION, CACHE_MAX_AGE_MS, SPLASH_MAX_ATTEMPTS, SPLASH_MIN_DURATION_MS, SPLASH_RETRY_DELAY_MS } from '@/config';
+import { loadCached, removeCache } from '@/lib/cache';
+import { fetchLocale, isYes, localeCacheKey } from '@/lib/locali';
 import { requestLocationPermission } from '@/lib/location';
 import { log } from '@/lib/log';
 import { updateSession } from '@/lib/session';
@@ -67,7 +68,10 @@ export default function SplashScreen() {
       }
 
       try {
-        const settings = await withRetries('variabili', fetchAppSettings, retryMessage);
+        // Variabili e dati del locale si rileggono da Airtable al massimo ogni CACHE_MAX_AGE_MS (SPEC §15.2).
+        const settings = await loadCached('variabili', CACHE_MAX_AGE_MS, fetchAppSettings, () =>
+          withRetries('variabili', fetchAppSettings, retryMessage)
+        );
         updateSession({ settings });
         log(`Variabili caricate: versione pubblicata ${settings.latestVersion ?? 'n.d.'}`);
         if (settings.latestVersion !== null && settings.latestVersion > APP_VERSION) {
@@ -78,7 +82,13 @@ export default function SplashScreen() {
         const localeName = getEmployeeLocale();
         if (localeName) {
           show({ kind: 'loading', message: 'Caricamento informazioni azienda..' });
-          const locale = await withRetries('info locale', () => fetchLocale(localeName), retryMessage);
+          const load = () => fetchLocale(localeName);
+          const key = localeCacheKey(localeName);
+          const locale = await loadCached(key, CACHE_MAX_AGE_MS, load, () =>
+            withRetries('info locale', load, retryMessage)
+          );
+          // Un locale non trovato non si ricorda: al prossimo avvio si riprova.
+          if (!locale) removeCache(key);
           updateSession({ locale });
           log(locale ? `Locale riconosciuto: ${localeName}` : `Locale ${localeName} non trovato in Locali Approvati`);
           if (isYes(locale?.GPS)) await requestLocationPermission();

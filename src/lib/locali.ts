@@ -1,4 +1,6 @@
+import { CACHE_MAX_AGE_MS } from '@/config';
 import { findFirst, formulaString, listRecords } from '@/lib/airtable';
+import { readFreshCache, writeCache } from '@/lib/cache';
 
 // Tabella "Locali Approvati": un record per ogni locale cliente (vedi SPEC §1.1).
 
@@ -30,6 +32,20 @@ export function isYes(value: string | undefined) {
 export async function fetchLocale(locale: string) {
   const record = await findFirst<LocaleFields>(LOCALI_TABLE, `{Locale} = ${formulaString(locale)}`);
   return record?.fields ?? null;
+}
+
+/** Chiave della cache del record di un locale. */
+export function localeCacheKey(locale: string) {
+  return `locale:${locale}`;
+}
+
+/** Come fetchLocale, ma usa il record salvato sul telefono se è recente (SPEC §15.2). */
+export async function fetchLocaleCached(locale: string) {
+  const cached = readFreshCache<LocaleFields>(localeCacheKey(locale), CACHE_MAX_AGE_MS);
+  if (cached) return cached;
+  const fields = await fetchLocale(locale);
+  if (fields) writeCache(localeCacheKey(locale), fields);
+  return fields;
 }
 
 /** Elenco dei nomi di tutti i locali (Accesso Dipendenti e controllo del QR). */

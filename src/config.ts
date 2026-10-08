@@ -26,6 +26,12 @@ export const SETTING_KEYS = {
 /** Splash: tentativi e attesa tra un tentativo e l'altro quando Airtable non risponde (come l'originale). */
 export const SPLASH_MAX_ATTEMPTS = 5;
 export const SPLASH_RETRY_DELAY_MS = 10_000;
+/**
+ * Per quanto tempo si usano variabili e dati del locale salvati sul telefono senza richiederli ad Airtable (SPEC §15.2).
+ * Un cambio su Airtable (es. Intercambio, GPS, nuova versione) arriva sui telefoni entro questo tempo.
+ */
+export const CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
 /** Durata minima della Splash (ms). */
 export const SPLASH_MIN_DURATION_MS = 1500;
 
@@ -37,4 +43,4 @@ export const ANDROID_PACKAGE = 'com.teamtime.dasostituire';
 export const IOS_APP_STORE_ID = '';
 
 /** Assistenza WhatsApp (schermata Conferma e Assistenza). */
-export const WHATSAPP_SUPPORT_URL = ''; // TODO tappa 4: link completo dal blocco Thunkable (numero +39 313…)
+export const WHATSAPP_SUPPORT_URL = 'https://wa.me/393931367530';

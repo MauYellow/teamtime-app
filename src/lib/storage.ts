@@ -102,6 +102,16 @@ export function setIfEmpty(key: keyof typeof KEYS, value: string) {
   if (read(KEYS[key]) === null) Storage.setItemSync(KEYS[key], value);
 }
 
+/** ID della riga più vecchia di una tabella, ricordato per non rileggerlo a ogni entrata (SPEC §15.2). */
+export function getOldestId(table: string) {
+  const value = Number(read(`idMinimo:${table}`));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+export function setOldestId(table: string, id: number) {
+  Storage.setItemSync(`idMinimo:${table}`, String(id));
+}
+
 // Credenziali del Registro Online ("Ricorda dati"), nel portachiavi del telefono.
 
 export async function getManagerCredentials() {

@@ -107,3 +107,12 @@ export function updateRecord<T>(table: string, id: string, fields: Partial<T>) {
 export function deleteRecord(table: string, id: string) {
   return request<{ id: string; deleted: boolean }>(`${tableUrl(table)}/${id}`, { method: 'DELETE' });
 }
+
+/** Cancella fino a 10 righe con una sola chiamata (limite dell'API). */
+export function deleteRecords(table: string, ids: string[]) {
+  const params = new URLSearchParams();
+  ids.slice(0, 10).forEach((id) => params.append('records[]', id));
+  return request<{ records: { id: string; deleted: boolean }[] }>(`${tableUrl(table)}?${params.toString()}`, {
+    method: 'DELETE',
+  });
+}

@@ -2,18 +2,18 @@ import { formatTime, isoDate } from '@/lib/activities';
 import {
   AirtableError,
   createRecord,
-  deleteRecord,
+  deleteRecords,
   formulaString,
   listRecords,
   updateRecord,
   type AirtableRecord,
 } from '@/lib/airtable';
 import { DEVICE } from '@/lib/device';
-import { fetchLocale, isYes, type LocaleFields } from '@/lib/locali';
+import { fetchLocaleCached, isYes, type LocaleFields } from '@/lib/locali';
 import { getCurrentAddress } from '@/lib/location';
 import { log } from '@/lib/log';
 import { getSession } from '@/lib/session';
-import { addActivity, getActivities, getEmployeeName } from '@/lib/storage';
+import { addActivity, getActivities, getEmployeeName, getOldestId, setOldestId } from '@/lib/storage';
 import { scanTelegramText, sendTelegram } from '@/lib/telegram';
 
 // Timbrature di entrata e uscita (SPEC §4.1 e §4.2), come i blocchi "ScriviOrario" e "Scrivi Uscita" di Thunkable.
@@ -67,7 +67,7 @@ export function canUseOtherLocale() {
  */
 export async function entryMaxRows(scanned: string, ownLocale: string) {
   if (scanned === ownLocale) return maxRowsOf(getSession().locale);
-  const other = await fetchLocale(scanned);
+  const other = await fetchLocaleCached(scanned);
   if (!other) return null;
   const maxRows = maxRowsOf(other);
   log(`Cambio variabile Max Row in base a locale in Intercambio: ${maxRows}`);
@@ -109,28 +109,40 @@ function responseText(record: AirtableRecord<PresenzaFields>) {
 }
 
 /**
- * Limite righe (Max Rows): se tra l'ID più basso e quello più alto ci sono almeno Max Rows righe, cancella la più
- * vecchia, come l'app Thunkable. Il portale dà per scontato questo limite. Un errore qui non blocca la timbratura.
+ * Limite righe (Max Rows), come l'app Thunkable: una riga va cancellata quando tra il suo ID e quello della riga appena
+ * creata ci sono almeno Max Rows righe. Il portale dà per scontato questo limite. Un errore qui non blocca la timbratura.
+ *
+ * [miglioria, SPEC §15.2] Thunkable a ogni entrata leggeva l'ID più basso e quello più alto e cancellava una riga
+ * (3 chiamate). Ora l'ID più alto arriva dalla risposta della creazione, l'ID più basso è ricordato sul telefono e si
+ * rilegge solo quando si arriva al limite; le righe in eccesso si cancellano insieme (fino a 10 per chiamata).
+ * Se altri telefoni o il portale cancellano righe, l'ID ricordato è solo più basso del vero: si ricontrolla prima,
+ * senza cancellare nulla di troppo.
  */
-async function trimTable(table: string, maxRows: number) {
+async function trimTable(table: string, maxRows: number, newId: number | undefined) {
+  if (newId === undefined) return;
+  const oldestId = getOldestId(table);
+  // newId < oldestId: la tabella è stata ricreata (gli ID ripartono), il valore ricordato non vale più.
+  if (oldestId !== null && newId >= oldestId && newId - oldestId < maxRows) return;
+
   try {
-    const [oldest] = await listRecords<PresenzaFields>(table, {
+    const oldest = await listRecords<PresenzaFields>(table, {
       fields: ['ID'],
       sort: [{ field: 'ID', direction: 'asc' }],
-      maxRecords: 1,
+      maxRecords: 10,
     });
-    const [newest] = await listRecords<PresenzaFields>(table, {
-      fields: ['ID'],
-      sort: [{ field: 'ID', direction: 'desc' }],
-      maxRecords: 1,
-    });
-    if (!oldest || !newest) return;
-    const rows = (newest.fields.ID ?? 0) - (oldest.fields.ID ?? 0);
-    log(`Riga con ID minore: ${oldest.fields.ID}, maggiore: ${newest.fields.ID}, righe approssimate: ${rows}`);
-    if (rows >= maxRows) {
-      await deleteRecord(table, oldest.id);
-      log(`[API Airtable] Cancellazione ultima riga per limite ${maxRows}: ${oldest.id} (${table})`);
+    const excess = oldest.filter((record) => record.fields.ID !== undefined && newId - record.fields.ID >= maxRows);
+    if (excess.length > 0) {
+      await deleteRecords(
+        table,
+        excess.map((record) => record.id)
+      );
+      log(`[API Airtable] Limite ${maxRows} righe: cancellate ${excess.length} righe vecchie (${table})`);
     }
+    const remaining = oldest.find((record) => !excess.includes(record));
+    const lastDeleted = excess[excess.length - 1]?.fields.ID;
+    const nextOldest = remaining?.fields.ID ?? (lastDeleted !== undefined ? lastDeleted + 1 : undefined);
+    if (nextOldest !== undefined) setOldestId(table, nextOldest);
+    log(`Riga con ID minore: ${nextOldest}, ID nuova riga: ${newId}`);
   } catch (error) {
     log(`Ridimensionamento database non riuscito: ${String(error)}`);
   }
@@ -158,7 +170,7 @@ export async function registerEntry(table: string, maxRows: number, onStatus: Sc
   sendTelegram(scanTelegramText(name, table, 'Entrata', response));
 
   onStatus('Ridimensionamento database..');
-  await trimTable(table, maxRows);
+  await trimTable(table, maxRows, record.fields.ID);
 
   onStatus('Salvataggio dati nel dispositivo..');
   addActivity({ locale: table, date: isoDate(now), type: 'Entrata', time });
