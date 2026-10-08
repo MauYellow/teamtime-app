@@ -266,7 +266,7 @@ function AlreadyRegistered() {
     log('Accesso Dipendenti: Richiesta Rimozione Dati');
     const confirmed = await confirmAlert(
       'Rimozione dati',
-      'Il tuo nome e la tua azienda verranno cancellati da questo telefono e dovrai registrarti di nuovo.',
+      'Il tuo nome verrà cancellato da questo telefono e dovrai registrarti di nuovo.',
       { confirm: 'Conferma', destructive: true }
     );
     if (!confirmed) return;

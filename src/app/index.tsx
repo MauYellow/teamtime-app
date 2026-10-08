@@ -68,7 +68,7 @@ export default function SplashScreen() {
       }
 
       try {
-        // Variabili e dati del locale si rileggono da Airtable al massimo ogni CACHE_MAX_AGE_MS (SPEC §15.2).
+        // Le variabili (tabella Versione) cambiano di rado: si rileggono al massimo ogni CACHE_MAX_AGE_MS (SPEC §15.2).
         const settings = await loadCached('variabili', CACHE_MAX_AGE_MS, fetchAppSettings, () =>
           withRetries('variabili', fetchAppSettings, retryMessage)
         );
@@ -84,7 +84,9 @@ export default function SplashScreen() {
           show({ kind: 'loading', message: 'Caricamento informazioni azienda..' });
           const load = () => fetchLocale(localeName);
           const key = localeCacheKey(localeName);
-          const locale = await loadCached(key, CACHE_MAX_AGE_MS, load, () =>
+          // I dati del locale (GPS, Intercambio, Max Rows) si rileggono a ogni apertura, così un cambio su Airtable vale
+          // subito; la copia salvata serve solo se Airtable non risponde.
+          const locale = await loadCached(key, 0, load, () =>
             withRetries('info locale', load, retryMessage)
           );
           // Un locale non trovato non si ricorda: al prossimo avvio si riprova.

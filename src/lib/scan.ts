@@ -9,7 +9,7 @@ import {
   type AirtableRecord,
 } from '@/lib/airtable';
 import { DEVICE } from '@/lib/device';
-import { fetchLocaleCached, isYes, type LocaleFields } from '@/lib/locali';
+import { fetchLocale, isYes, type LocaleFields } from '@/lib/locali';
 import { getCurrentAddress } from '@/lib/location';
 import { log } from '@/lib/log';
 import { getSession } from '@/lib/session';
@@ -67,7 +67,7 @@ export function canUseOtherLocale() {
  */
 export async function entryMaxRows(scanned: string, ownLocale: string) {
   if (scanned === ownLocale) return maxRowsOf(getSession().locale);
-  const other = await fetchLocaleCached(scanned);
+  const other = await fetchLocale(scanned);
   if (!other) return null;
   const maxRows = maxRowsOf(other);
   log(`Cambio variabile Max Row in base a locale in Intercambio: ${maxRows}`);

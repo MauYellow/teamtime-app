@@ -25,11 +25,6 @@ export function removeCache(key: string) {
   Storage.removeItemSync(PREFIX + key);
 }
 
-/** Valore ricordato se più recente di maxAgeMs, altrimenti null. */
-export function readFreshCache<T>(key: string, maxAgeMs: number): T | null {
-  const entry = read<T>(key);
-  return entry && Date.now() - entry.savedAt < maxAgeMs ? entry.value : null;
-}
 
 /**
  * Carica un dato con la cache: se è recente non chiama Airtable; se è vecchio prova a rileggerlo e, se Airtable non

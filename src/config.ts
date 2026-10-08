@@ -27,8 +27,8 @@ export const SETTING_KEYS = {
 export const SPLASH_MAX_ATTEMPTS = 5;
 export const SPLASH_RETRY_DELAY_MS = 10_000;
 /**
- * Per quanto tempo si usano variabili e dati del locale salvati sul telefono senza richiederli ad Airtable (SPEC §15.2).
- * Un cambio su Airtable (es. Intercambio, GPS, nuova versione) arriva sui telefoni entro questo tempo.
+ * Per quanto tempo si usano le variabili della tabella Versione salvate sul telefono senza richiederle ad Airtable
+ * (SPEC §15.2). Una nuova versione obbligatoria o un cambio delle chiavi Telegram arriva sui telefoni entro questo tempo.
  */
 export const CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
