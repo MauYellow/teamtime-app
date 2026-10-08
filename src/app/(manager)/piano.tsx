@@ -1,9 +1,9 @@
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandTitle } from '@/components/BrandTitle';
 import { LogoHeader } from '@/components/LogoHeader';
-import { APPLE_EULA_URL, PORTAL_URL, PRIVACY_URL } from '@/config';
+import { EULA_URL, PORTAL_URL, PRIVACY_URL } from '@/config';
 import { log } from '@/lib/log';
 import { useSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
@@ -62,11 +62,9 @@ export default function PianoScreen() {
           <Pressable onPress={() => open(PRIVACY_URL)} accessibilityRole="link">
             <Text style={styles.link}>Informativa sulla privacy</Text>
           </Pressable>
-          {Platform.OS === 'ios' && (
-            <Pressable onPress={() => open(APPLE_EULA_URL)} accessibilityRole="link">
-              <Text style={styles.link}>Termini e condizioni (EULA)</Text>
-            </Pressable>
-          )}
+          <Pressable onPress={() => open(EULA_URL)} accessibilityRole="link">
+            <Text style={styles.link}>Termini e condizioni (EULA)</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>

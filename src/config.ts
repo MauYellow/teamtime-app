@@ -50,14 +50,11 @@ export const IOS_APP_STORE_ID = '6443974498';
 /** Assistenza WhatsApp (schermata Conferma e Assistenza). */
 export const WHATSAPP_SUPPORT_URL = 'https://wa.me/393931367530';
 
-/**
- * "Vuoi far rimuovere i tuoi dati aziendali? Contattaci" (Registro Online). [interpretazione] il link originale è
- * troncato negli screenshot: si usa il modulo di assistenza della tabella Supporto.
- */
-export const DATA_REMOVAL_FORM_URL = 'https://airtable.com/shr0Bdu0Ye9GXvbqq';
+/** "Vuoi far rimuovere i tuoi dati aziendali? Contattaci" (Registro Online): modulo Airtable. */
+export const DATA_REMOVAL_FORM_URL = 'https://airtable.com/appOwBv51ihqoT7Cx/shr0Bdu0Ye9GXvbqq';
 
 /** Area manager → "Il tuo piano": link legali e gestionale web. */
 export const PRIVACY_URL = 'https://www.teamtimeapp.it/privacy';
-/** EULA standard di Apple (l'originale lo apriva su iOS). */
-export const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+/** Termini e condizioni (EULA) di TeamTime, per iOS e Android. */
+export const EULA_URL = 'https://mauyellow.github.io/app-legal/terms.html';
 export const PORTAL_URL = 'https://www.teamtimeapp.it/login';
