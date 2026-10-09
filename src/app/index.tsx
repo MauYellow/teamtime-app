@@ -13,7 +13,7 @@ import { requestLocationPermission } from '@/lib/location';
 import { log } from '@/lib/log';
 import { updateSession } from '@/lib/session';
 import { fetchAppSettings, type AppSettings } from '@/lib/settings';
-import { getEmployeeLocale, isFirstAccess } from '@/lib/storage';
+import { getEmployeeLocale, getEmployeeName, isFirstAccess } from '@/lib/storage';
 import { openStorePage } from '@/lib/store';
 import { sendTelegram } from '@/lib/telegram';
 import { migrateThunkableData } from '@/lib/thunkableMigration';
@@ -60,6 +60,7 @@ export default function SplashScreen() {
       const startedAt = Date.now();
       log('Inizializzazione App');
       await migrateThunkableData();
+      log(`Dati sul telefono: nome ${getEmployeeName() ? 'presente' : 'assente'}, azienda ${getEmployeeLocale() ?? 'assente'}`);
 
       const network = await Network.getNetworkStateAsync();
       if (network.isConnected === false) {
