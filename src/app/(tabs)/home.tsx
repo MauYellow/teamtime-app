@@ -33,7 +33,7 @@ import { colors, radius, spacing } from '@/theme';
 // Home del dipendente (SPEC §4): dati del dipendente, Registra Entrata / Uscita, ultime attività.
 export default function HomeScreen() {
   // Valori letti subito (lettura sincrona): altrimenti al primo disegno la Home mostrerebbe per un attimo
-  // "Registra il tuo nome…" anche a chi è già registrato.
+  // la versione "non registrato" anche a chi è già registrato.
   const [name, setName] = useState<string | null>(getEmployeeName);
   const [locale, setLocale] = useState<string | null>(getEmployeeLocale);
   const [activities, setActivities] = useState<Activity[]>(getActivities);
@@ -149,7 +149,6 @@ export default function HomeScreen() {
         <LogoHeader onPress={openLogError} />
         <View style={styles.notRegistered}>
           <CompanyRequestBanner />
-          <Text style={styles.hint}>Registra il tuo nome prima di scannerizzare il QR Code</Text>
           <AppButton title="Registrati come azienda" onPress={() => router.push('/tutorial')} />
           <AppButton title="Registrati come dipendente" onPress={registerAsEmployee} />
           <AppButton title="Accedi al Tutorial" variant="outline" onPress={() => router.push('/tutorial')} />
@@ -199,7 +198,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   notRegistered: { flex: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.md },
-  hint: { textAlign: 'center', color: colors.muted, fontSize: 15, marginBottom: spacing.sm },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
   header: { gap: spacing.md, marginBottom: spacing.sm },
   card: {
