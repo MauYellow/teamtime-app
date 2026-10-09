@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/AppButton';
 import { BrandTitle } from '@/components/BrandTitle';
 import { BusyOverlay } from '@/components/BusyOverlay';
+import { CompanyRequestBanner } from '@/components/CompanyRequestBanner';
 import { LogoHeader } from '@/components/LogoHeader';
 import { useQrScanner } from '@/components/QrScanner';
 import { activityLabel } from '@/lib/activities';
@@ -31,9 +32,11 @@ import { colors, radius, spacing } from '@/theme';
 
 // Home del dipendente (SPEC §4): dati del dipendente, Registra Entrata / Uscita, ultime attività.
 export default function HomeScreen() {
-  const [name, setName] = useState<string | null>(null);
-  const [locale, setLocale] = useState<string | null>(null);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  // Valori letti subito (lettura sincrona): altrimenti al primo disegno la Home mostrerebbe per un attimo
+  // "Registra il tuo nome…" anche a chi è già registrato.
+  const [name, setName] = useState<string | null>(getEmployeeName);
+  const [locale, setLocale] = useState<string | null>(getEmployeeLocale);
+  const [activities, setActivities] = useState<Activity[]>(getActivities);
   const [busy, setBusy] = useState<string | null>(null);
   const { scan, scanner } = useQrScanner();
 
@@ -145,6 +148,7 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <LogoHeader onPress={openLogError} />
         <View style={styles.notRegistered}>
+          <CompanyRequestBanner />
           <Text style={styles.hint}>Registra il tuo nome prima di scannerizzare il QR Code</Text>
           <AppButton title="Registrati come azienda" onPress={() => router.push('/tutorial')} />
           <AppButton title="Registrati come dipendente" onPress={registerAsEmployee} />
@@ -163,6 +167,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.content}
         ListHeaderComponent={
           <View style={styles.header}>
+            <CompanyRequestBanner />
             <View style={styles.card}>
               <Text style={styles.label}>Nome Dipendente</Text>
               <Text style={styles.value}>{name}</Text>

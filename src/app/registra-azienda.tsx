@@ -18,10 +18,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { useTimePicker } from '@/components/TimePicker';
-import { WHATSAPP_SUPPORT_URL } from '@/config';
 import { formatTime } from '@/lib/activities';
 import { log } from '@/lib/log';
-import { submitRequest, validateRequest, type CompanyRequest } from '@/lib/registration';
+import { submitRequest, validateRequest, whatsappUrl, type CompanyRequest } from '@/lib/registration';
+import type { SentCompanyRequest } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 
 const STEPS = ['Richiedi QR Code', 'Calendario e contatto', 'Conferma e assistenza'];
@@ -42,8 +42,10 @@ export default function RegistraAziendaScreen() {
   const [request, setRequest] = useState<CompanyRequest>({ locale: '', mail: '', phone: '', employees: '' });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [day, setDay] = useState(() => new Date());
-  const [time, setTime] = useState(() => new Date());
+  // Giorno e ora partono vuoti: Conferma si attiva solo dopo averli scelti.
+  const [day, setDay] = useState<Date | null>(null);
+  const [time, setTime] = useState<Date | null>(null);
+  const [sent, setSent] = useState<SentCompanyRequest | null>(null);
   const { pickDate, pickTime, picker } = useTimePicker();
 
   const update = (key: keyof CompanyRequest) => (value: string) => setRequest((current) => ({ ...current, [key]: value }));
@@ -68,19 +70,20 @@ export default function RegistraAziendaScreen() {
   };
 
   const chooseDay = async () => {
-    const value = await pickDate('Scegli il giorno', day, new Date());
+    const value = await pickDate('Scegli il giorno', day ?? new Date(), new Date());
     if (value) setDay(value);
   };
 
   const chooseTime = async () => {
-    const value = await pickTime('Scegli l’orario', time);
+    const value = await pickTime('Scegli l’orario', time ?? new Date());
     if (value) setTime(value);
   };
 
   const confirm = async () => {
+    if (!day || !time) return;
     setLoading(true);
     try {
-      await submitRequest(request, day, time);
+      setSent(await submitRequest(request, day, time));
       setStep(2);
     } catch (err) {
       log(`Quando Contattare: errore ${String(err)}`);
@@ -160,20 +163,31 @@ export default function RegistraAziendaScreen() {
                 <SymbolView name={{ ios: 'calendar', android: 'calendar_month' }} tintColor={colors.primary} size={32} />
                 <View style={styles.flex}>
                   <Text style={styles.choiceTitle}>Scegli Giorno</Text>
-                  <Text style={styles.choiceValue}>{formatDay(day)}</Text>
+                  <Text style={[styles.choiceValue, !day && styles.placeholder]}>
+                    {day ? formatDay(day) : 'Tocca per scegliere il giorno'}
+                  </Text>
                 </View>
               </Pressable>
               <Pressable onPress={chooseTime} accessibilityRole="button" style={styles.choice}>
                 <SymbolView name={{ ios: 'clock', android: 'schedule' }} tintColor={colors.primary} size={32} />
                 <View style={styles.flex}>
                   <Text style={styles.choiceTitle}>Scegli Orario</Text>
-                  <Text style={styles.choiceValue}>{formatTime(time)}</Text>
+                  <Text style={[styles.choiceValue, !time && styles.placeholder]}>
+                    {time ? formatTime(time) : "Tocca per scegliere l'orario"}
+                  </Text>
                 </View>
               </Pressable>
               <Text style={styles.small}>
-                Assicurati di essere libero nel periodo indicato, la call durerà pochi minuti.
+                Faremo il possibile per contattarti in quel giorno e fascia oraria. Assicurati di essere libero nel
+                periodo indicato, la call durerà pochi minuti.
               </Text>
-              <AppButton title="Conferma" onPress={confirm} loading={loading} style={styles.button} />
+              <AppButton
+                title="Conferma"
+                onPress={confirm}
+                loading={loading}
+                disabled={!day || !time}
+                style={styles.button}
+              />
             </>
           )}
 
@@ -191,7 +205,7 @@ export default function RegistraAziendaScreen() {
               ))}
               <AppButton
                 title="Assistenza WhatsApp"
-                onPress={() => Linking.openURL(WHATSAPP_SUPPORT_URL)}
+                onPress={() => Linking.openURL(whatsappUrl(sent))}
                 style={[styles.button, styles.whatsapp]}
               />
               <AppButton title="Torna in Home" onPress={() => router.dismissTo('/home')} />
@@ -236,7 +250,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   choiceTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
-  choiceValue: { fontSize: 15, color: colors.muted, marginTop: 2 },
+  choiceValue: { fontSize: 15, color: colors.text, marginTop: 2 },
+  placeholder: { color: colors.muted, fontStyle: 'italic' },
   todo: {
     flexDirection: 'row',
     alignItems: 'center',

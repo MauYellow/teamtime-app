@@ -121,6 +121,27 @@ export function setOldestId(table: string, id: number) {
   Storage.setItemSync(`idMinimo:${table}`, String(id));
 }
 
+/** Richiesta di attivazione inviata da questo telefono (avviso in Home finché non viene chiuso). */
+export type SentCompanyRequest = { locale: string; employees: string; day: string; time: string };
+
+export function getSentCompanyRequest(): SentCompanyRequest | null {
+  const json = read('richiestaAzienda');
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as SentCompanyRequest;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSentCompanyRequest(request: SentCompanyRequest) {
+  Storage.setItemSync('richiestaAzienda', JSON.stringify(request));
+}
+
+export function clearSentCompanyRequest() {
+  Storage.removeItemSync('richiestaAzienda');
+}
+
 // Credenziali del Registro Online ("Ricorda dati"), nel portachiavi del telefono.
 
 export async function getManagerCredentials() {

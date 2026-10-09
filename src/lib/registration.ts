@@ -1,8 +1,10 @@
-import { BREVO_API_KEY } from '@/config';
+import { BREVO_API_KEY, WHATSAPP_SUPPORT_URL } from '@/config';
+import { formatTime } from '@/lib/activities';
 import { createRecord, findFirst, formulaString } from '@/lib/airtable';
 import { DEVICE } from '@/lib/device';
 import { LOCALI_TABLE } from '@/lib/locali';
 import { log } from '@/lib/log';
+import { saveSentCompanyRequest, type SentCompanyRequest } from '@/lib/storage';
 import { sendTelegram } from '@/lib/telegram';
 
 // Registrazione azienda (SPEC §10): Richiedi QR Code → Quando Contattare → riga in "New QR Code" + contatto Brevo.
@@ -49,10 +51,25 @@ export async function validateRequest(request: CompanyRequest): Promise<string |
   return null;
 }
 
+function formatDay(day: Date) {
+  return `${day.getDate()}/${day.getMonth() + 1}/${day.getFullYear()}`;
+}
+
 /** "G/M/AAAA alle H:mm", come il campo "Quando Contattare" scritto da Thunkable (minuti ora sempre a due cifre). */
 export function formatContactTime(day: Date, time: Date) {
-  const minutes = String(time.getMinutes()).padStart(2, '0');
-  return `${day.getDate()}/${day.getMonth() + 1}/${day.getFullYear()} alle ${time.getHours()}:${minutes}`;
+  return `${formatDay(day)} alle ${formatTime(time)}`;
+}
+
+/**
+ * Link WhatsApp all'assistenza; con una richiesta inviata il messaggio è già scritto, così l'azienda deve solo
+ * premere Invia.
+ */
+export function whatsappUrl(request?: SentCompanyRequest | null) {
+  if (!request) return WHATSAPP_SUPPORT_URL;
+  const text =
+    `Buongiorno, ho appena richiesto l'attivazione di TeamTime. Azienda: ${request.locale}, ` +
+    `Dipendenti: ${request.employees}. Può contattarmi il ${request.day} alle ${request.time}. Grazie.`;
+  return `${WHATSAPP_SUPPORT_URL}?text=${encodeURIComponent(text)}`;
 }
 
 /** Aggiunge il contatto alla lista Brevo. Un errore qui non blocca la registrazione. */
@@ -75,8 +92,11 @@ async function addToBrevo(mail: string) {
   }
 }
 
-/** Crea la richiesta in "New QR Code" (la vede Maurizio per l'attivazione) e aggiunge la mail su Brevo. */
-export async function submitRequest(request: CompanyRequest, day: Date, time: Date) {
+/**
+ * Crea la richiesta in "New QR Code" (la vede Maurizio per l'attivazione), aggiunge la mail su Brevo e la ricorda sul
+ * telefono per l'avviso in Home. Restituisce i dati per il messaggio WhatsApp.
+ */
+export async function submitRequest(request: CompanyRequest, day: Date, time: Date): Promise<SentCompanyRequest> {
   const locale = request.locale.trim();
   const mail = request.mail.trim().toLowerCase();
   const fields: NewQrFields = {
@@ -92,5 +112,8 @@ export async function submitRequest(request: CompanyRequest, day: Date, time: Da
   await createRecord<NewQrFields>(NEW_QR_TABLE, fields);
   log(`Richiesta QR Code creata: ${locale}`);
   sendTelegram(`*Nuova richiesta QR Code*: ${locale} *Quando contattare*: ${fields['Quando Contattare']}`);
+  const sent = { locale, employees: request.employees.trim(), day: formatDay(day), time: formatTime(time) };
+  saveSentCompanyRequest(sent);
   await addToBrevo(mail);
+  return sent;
 }
