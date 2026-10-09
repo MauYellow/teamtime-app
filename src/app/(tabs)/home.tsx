@@ -13,6 +13,7 @@ import { activityLabel } from '@/lib/activities';
 import { confirmAlert } from '@/lib/dialogs';
 import { log } from '@/lib/log';
 import { showScanResult } from '@/lib/navigation';
+import { askReview, shouldAskReview } from '@/lib/review';
 import {
   canUseOtherLocale,
   entryMaxRows,
@@ -48,6 +49,16 @@ export default function HomeScreen() {
 
   // Rilegge i dati ogni volta che la schermata torna visibile (es. dopo Scan Result o Accesso Dipendenti).
   useFocusEffect(reload);
+
+  // Richiesta di recensione al ritorno in Home dopo una timbratura riuscita, se è il momento (vedi lib/review.ts).
+  // Qui e non su Scan Result: lì un ritorno veloce in Home annullava la richiesta.
+  useFocusEffect(
+    useCallback(() => {
+      if (!shouldAskReview()) return;
+      const timer = setTimeout(askReview, 600);
+      return () => clearTimeout(timer);
+    }, [])
+  );
 
   const lastIsEntry = activities[0]?.type === 'Entrata';
 

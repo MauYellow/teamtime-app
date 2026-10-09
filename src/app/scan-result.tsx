@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { backToHome } from '@/lib/navigation';
-import { askReview, shouldAskReview } from '@/lib/review';
 import { colors, spacing } from '@/theme';
 
 // Scan Result (SPEC §5): animazione "ok" se il messaggio contiene "correttamente", altrimenti "failed".
@@ -19,13 +18,6 @@ export default function ScanResultScreen() {
     Haptics.notificationAsync(
       ok ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error
     ).catch(() => undefined);
-  }, [ok]);
-
-  // Dopo una timbratura riuscita, se è il momento, si chiede la recensione (a animazione finita).
-  useEffect(() => {
-    if (!ok || !shouldAskReview()) return;
-    const timer = setTimeout(askReview, 1500);
-    return () => clearTimeout(timer);
   }, [ok]);
 
   return (

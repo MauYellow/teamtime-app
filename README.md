@@ -69,7 +69,7 @@ Valori che possono cambiare: `src/config.ts`.
   "TeamTime - App Settings", pubblicata sul web come CSV (`SETTINGS_CSV_URL`). Se nel foglio c'è un numero maggiore, la Splash blocca e chiede di aggiornare. Alzarlo **solo
   dopo** che la nuova versione è sugli store. **La prima scheda (vecchia app) non va mai toccata**, in particolare non
   alzare "Versione App": bloccherebbe i telefoni che non possono installare la nuova app (SPEC §15.1).
-- `REVIEW_EVERY_SCANS` (20): ogni 20 timbrature riuscite (entrate + uscite) compare "Ti piace TeamTime?".
+- `REVIEW_EVERY_SCANS` (20): ogni 20 timbrature riuscite (entrate + uscite), al ritorno in Home, compare "Ti piace TeamTime?".
   "Ok" apre lo store e non lo chiede più; "Non ora" riparte da zero.
 
 `ios/` e `android/` sono generate (Continuous Native Generation): non modificarle a mano, si configura tutto in `app.json`.

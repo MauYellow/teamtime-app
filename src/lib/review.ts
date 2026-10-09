@@ -12,7 +12,9 @@ import { getReviewScans, isReviewDone, setReviewDone, setReviewScans } from '@/l
 /** Da chiamare dopo ogni timbratura registrata correttamente. */
 export function countScanForReview() {
   if (isReviewDone()) return;
-  setReviewScans(getReviewScans() + 1);
+  const count = getReviewScans() + 1;
+  setReviewScans(count);
+  log(`Recensione: timbrature ${count}/${REVIEW_EVERY_SCANS}`);
 }
 
 export function shouldAskReview() {
