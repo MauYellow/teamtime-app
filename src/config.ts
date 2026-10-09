@@ -56,6 +56,9 @@ export const IOS_APP_STORE_ID = '6443974498';
 /** Assistenza WhatsApp (schermata Conferma e Assistenza). */
 export const WHATSAPP_SUPPORT_URL = 'https://wa.me/393931367530';
 
+/** Modulo di assistenza (lo stesso della voce "Assistenza" in Supporto): "Segnala un problema". */
+export const ASSISTANCE_FORM_URL = 'https://airtable.com/shr0Bdu0Ye9GXvbqq';
+
 /** "Vuoi far rimuovere i tuoi dati aziendali? Contattaci" (Registro Online): modulo Airtable. */
 export const DATA_REMOVAL_FORM_URL = 'https://airtable.com/appOwBv51ihqoT7Cx/shr0Bdu0Ye9GXvbqq';
 
