@@ -1,12 +1,12 @@
-import { Linking, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
-import { ANDROID_PACKAGE, IOS_APP_STORE_ID, REVIEW_EVERY_SCANS } from '@/config';
-import { confirmAlert } from '@/lib/dialogs';
+import { ANDROID_PACKAGE, ASSISTANCE_FORM_URL, IOS_APP_STORE_ID, REVIEW_EVERY_SCANS } from '@/config';
 import { log } from '@/lib/log';
 import { getReviewScans, isReviewDone, setReviewDone, setReviewScans } from '@/lib/storage';
 
 // Richiesta di recensione ogni REVIEW_EVERY_SCANS scansioni riuscite (entrate + uscite), decisione dell'utente.
-// "Ok" apre la pagina della recensione sullo store e non si chiede più; "Non ora" riparte da zero.
+// "Recensisci" apre la pagina della recensione sullo store e non si chiede più; "Non ora" e "Segnala un problema"
+// ripartono da zero.
 // [miglioria] L'originale dopo 40 aperture mostrava un alert che obbligava a recensire (vietato dagli store).
 
 /** Da chiamare dopo ogni timbratura registrata correttamente. */
@@ -27,22 +27,46 @@ function reviewUrl() {
     : `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
 }
 
-export async function askReview() {
-  const ok = await confirmAlert(
-    'Ti piace TeamTime?',
-    'Se TeamTime ti è utile, lasciaci una recensione: ci aiuta a migliorare!',
-    { cancel: 'Non ora', confirm: 'Ok' }
-  );
-  if (!ok) {
+async function open(url: string) {
+  try {
+    await Linking.openURL(url);
+  } catch (error) {
+    log(`Recensione: link non aperto ${String(error)}`);
+  }
+}
+
+/**
+ * Pannello con tre bottoni: "Recensisci" apre lo store e non si chiede più; "Non ora" riparte da zero;
+ * "Segnala un problema" (a sinistra su Android) apre il modulo di assistenza e riparte da zero.
+ */
+export function askReview() {
+  const later = () => {
     log('Recensione: "Non ora", contatore azzerato');
     setReviewScans(0);
-    return;
-  }
-  log('Recensione: "Ok", apro lo store');
-  setReviewDone();
-  try {
-    await Linking.openURL(reviewUrl());
-  } catch (error) {
-    log(`Recensione: store non aperto ${String(error)}`);
-  }
+  };
+  Alert.alert(
+    'Ti piace TeamTime? ⭐⭐⭐⭐⭐',
+    "Condividi cosa ne pensi dell'app, il tuo contributo è vitale. Grazie!",
+    [
+      {
+        text: 'Segnala un problema',
+        onPress: () => {
+          log('Recensione: "Segnala un problema"');
+          setReviewScans(0);
+          open(ASSISTANCE_FORM_URL);
+        },
+      },
+      { text: 'Non ora', style: 'cancel', onPress: later },
+      {
+        text: 'Recensisci',
+        isPreferred: true,
+        onPress: () => {
+          log('Recensione: "Recensisci", apro lo store');
+          setReviewDone();
+          open(reviewUrl());
+        },
+      },
+    ],
+    { cancelable: true, onDismiss: later }
+  );
 }

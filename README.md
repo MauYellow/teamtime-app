@@ -70,7 +70,7 @@ Valori che possono cambiare: `src/config.ts`.
   dopo** che la nuova versione è sugli store. **La prima scheda (vecchia app) non va mai toccata**, in particolare non
   alzare "Versione App": bloccherebbe i telefoni che non possono installare la nuova app (SPEC §15.1).
 - `REVIEW_EVERY_SCANS` (20): ogni 20 timbrature riuscite (entrate + uscite), al ritorno in Home, compare "Ti piace TeamTime?".
-  "Ok" apre lo store e non lo chiede più; "Non ora" riparte da zero.
+  "Recensisci" apre lo store e non lo chiede più; "Non ora" e "Segnala un problema" ripartono da zero.
 
 `ios/` e `android/` sono generate (Continuous Native Generation): non modificarle a mano, si configura tutto in `app.json`.
 
@@ -79,8 +79,9 @@ Valori che possono cambiare: `src/config.ts`.
       (`com.teamtime.dasostituire`). Vanno messi quelli dell'app attuale (chiedere a Maurizio).
 - [x] `ANDROID_PACKAGE` (`com.gmail.mauriziopolverini89.teamtime`) e `IOS_APP_STORE_ID` (`6443974498`) in
       `src/config.ts`, presi dai link della tabella Supporto. Da confermare il bundle id iOS per `app.json`.
-- [ ] **Provare la richiesta di recensione**: mettere `REVIEW_EVERY_SCANS = 2`, fare 2 timbrature, provare "Non ora"
-      (deve ricomparire dopo altre 2) e "Ok" (apre lo store e non ricompare più); poi rimettere 20.
+- [ ] **Provare la richiesta di recensione**: mettere `REVIEW_EVERY_SCANS = 2`, fare 2 timbrature, provare "Non ora" e
+      "Segnala un problema" (devono ricomparire dopo altre 2) e "Recensisci" (apre lo store e non ricompare più); poi
+      rimettere 20.
 - [ ] Migrazione dei dati della vecchia app (`src/lib/thunkableMigration.ts`): verificare su Android e iOS con un
       telefono che ha la vecchia app installata (chiavi e formato dei valori del Local Storage di Thunkable).
 - [ ] Icona 1024×1024 e splash definitivi.
