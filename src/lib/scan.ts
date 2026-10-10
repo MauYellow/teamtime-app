@@ -1,4 +1,4 @@
-import { formatTime, isoDate } from '@/lib/activities';
+import { formatTime } from '@/lib/activities';
 import {
   AirtableError,
   createRecord,
@@ -9,13 +9,13 @@ import {
   type AirtableRecord,
 } from '@/lib/airtable';
 import { DEVICE } from '@/lib/device';
-import { markHistoryStale } from '@/lib/history';
+import { addRecordToHistory, historyHasEntryToday } from '@/lib/history';
 import { fetchLocale, isYes, type LocaleFields } from '@/lib/locali';
 import { getCurrentAddress } from '@/lib/location';
 import { log } from '@/lib/log';
 import { countScanForReview } from '@/lib/review';
 import { getSession } from '@/lib/session';
-import { addActivity, getActivities, getEmployeeName, getOldestId, setOldestId } from '@/lib/storage';
+import { getEmployeeLocale, getEmployeeName, getOldestId, setOldestId } from '@/lib/storage';
 import { scanTelegramText, sendTelegram } from '@/lib/telegram';
 
 // Timbrature di entrata e uscita (SPEC §4.1 e §4.2), come i blocchi "ScriviOrario" e "Scrivi Uscita" di Thunkable.
@@ -52,10 +52,9 @@ function maxRowsOf(locale: LocaleFields | null) {
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_MAX_ROWS;
 }
 
-/** True se nelle ultime attività c'è già un'entrata di oggi. [miglioria] confronto esatto della data. */
+/** True se nella copia di Airtable c'è già una presenza di oggi (lib/history.ts: unica fonte, niente dati del telefono). */
 export function hasEntryToday() {
-  const today = isoDate(new Date());
-  return getActivities().some((activity) => activity.type === 'Entrata' && activity.date === today);
+  return historyHasEntryToday(getEmployeeLocale(), getEmployeeName());
 }
 
 /** Intercambio: il dipendente può timbrare sul QR di un altro locale solo se il SUO locale ha Intercambio = yes. */
@@ -175,10 +174,9 @@ export async function registerEntry(table: string, maxRows: number, onStatus: Sc
   await trimTable(table, maxRows, record.fields.ID);
 
   onStatus('Salvataggio dati nel dispositivo..');
-  addActivity({ locale: table, date: isoDate(now), type: 'Entrata', time });
-  log(`Salvataggio nel dispositivo: ${table} - Entrata - ${time}`);
+  // La riga restituita da Airtable (stessa chiamata) va nella copia: Home e Accesso Dipendenti si aggiornano subito.
+  addRecordToHistory(table, record);
   countScanForReview();
-  markHistoryStale();
   onStatus('Completato');
   return SCAN_MESSAGES.ok;
 }
@@ -238,9 +236,8 @@ export async function registerExit(table: string, onStatus: ScanStatus): Promise
   sendTelegram(scanTelegramText(name, table, 'Uscita', response));
 
   onStatus('Salvataggio dati nel dispositivo..');
-  addActivity({ locale: table, date: isoDate(now), type: 'Uscita', time });
+  addRecordToHistory(table, record);
   countScanForReview();
-  markHistoryStale();
   onStatus('Completato');
   return { kind: 'done', message: SCAN_MESSAGES.ok };
 }

@@ -20,22 +20,13 @@ import { AppButton } from '@/components/AppButton';
 import { BrandTitle } from '@/components/BrandTitle';
 import { BusyOverlay } from '@/components/BusyOverlay';
 import { LogoHeader } from '@/components/LogoHeader';
+import { PresenzaRow } from '@/components/PresenzaRow';
 import { useQrScanner } from '@/components/QrScanner';
 import { formatTime } from '@/lib/activities';
 import { confirmAlert, infoAlert } from '@/lib/dialogs';
-import {
-  dayLabel,
-  formatEmployeeHours,
-  getSavedHistory,
-  historyMonths,
-  needsRefresh,
-  presenzaLabel,
-  refreshHistory,
-  type SavedHistory,
-} from '@/lib/history';
+import { formatEmployeeHours, getSavedHistory, historyMonths, needsRefresh, refreshHistory, type SavedHistory } from '@/lib/history';
 import { fetchLocaleNames } from '@/lib/locali';
 import { log } from '@/lib/log';
-import { isAtWork, type Presenza } from '@/lib/manager';
 import { canUseOtherLocale } from '@/lib/scan';
 import { updateSession } from '@/lib/session';
 import {
@@ -381,15 +372,7 @@ function AlreadyRegistered() {
   );
 }
 
-/** "Ven 10/10   9:00 → 17:30 · 8,50 ore" */
-function PresenzaRow({ record }: { record: Presenza }) {
-  return (
-    <View style={styles.activityRow}>
-      <Text style={styles.activityDay}>{dayLabel(record)}</Text>
-      <Text style={[styles.activityText, isAtWork(record) && styles.atWork]}>{presenzaLabel(record)}</Text>
-    </View>
-  );
-}
+
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
@@ -452,17 +435,6 @@ const styles = StyleSheet.create({
   totalValue: { fontSize: 34, fontWeight: '800', color: colors.primary },
   updated: { fontSize: 12, color: colors.muted },
   sectionTitle: { marginTop: spacing.md },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  activityDay: { width: 76, fontSize: 14, fontWeight: '600', color: colors.text },
-  activityText: { flex: 1, fontSize: 15, color: colors.text },
-  atWork: { color: colors.primary, fontWeight: '600' },
   monthRow: {
     flexDirection: 'row',
     alignItems: 'center',

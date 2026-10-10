@@ -1,24 +1,32 @@
 import Storage from 'expo-sqlite/kv-store';
 
-import { formulaString, listRecords } from '@/lib/airtable';
+import { formulaString, listRecords, type AirtableRecord } from '@/lib/airtable';
 import { log } from '@/lib/log';
 import { availableMonths, hoursOf, isAtWork, recordsOfMonth, type Month, type Presenza, type PresenzaFields } from '@/lib/manager';
 
-// Storico del dipendente in Accesso Dipendenti: le sue presenze lette da Airtable (tabella del suo locale) con UNA
-// chiamata, salvate sul telefono. Si rilegge solo se c'è stata una timbratura, se la copia ha più di 30 minuti o se
-// il dipendente trascina la lista. Le presenze fatte con l'Intercambio (altre tabelle) non ci sono: SPEC §16.1.
+// "Copia di Airtable": le presenze del dipendente nella tabella del suo locale, così come Airtable le ha restituite,
+// salvate sul telefono. È l'UNICA fonte per Home (ultime attività, turni non chiusi, "già un'entrata oggi") e per
+// Accesso Dipendenti: il telefono non calcola né mostra orari suoi.
+// - Si crea con una lettura (prima apertura di Home o Accesso Dipendenti).
+// - A ogni timbratura si aggiunge la riga che Airtable restituisce nella risposta della stessa chiamata: zero chiamate.
+// - Si rilegge da capo in Accesso Dipendenti se ha più di 30 minuti, trascinando la lista o toccando l'avviso rosso
+//   dei turni non chiusi (correzioni del manager).
+// Le presenze fatte con l'Intercambio (altre tabelle) non ci sono: SPEC §16.1.
 
 const KEY = 'storicoDipendente';
 const MAX_AGE_MS = 30 * 60_000;
-const FIELDS: (keyof PresenzaFields)[] = ['Nome', 'Entrata', 'Uscita', 'Created', 'Mese Nome', 'Anno', 'Giorni', 'Giorno Corretto', 'Ore Lavorate'];
+const FIELDS: (keyof PresenzaFields)[] = ['Nome', 'Entrata', 'Uscita', 'Created', 'Mese Nome', 'Anno', 'Giorni', 'Giorno Corretto', 'Ore Lavorate', 'ID'];
+
+/** Dalla più recente: per ID (Created è solo una data, come "2026-10-10"). */
+function newestFirst(a: Presenza, b: Presenza) {
+  return (b.fields.ID ?? 0) - (a.fields.ID ?? 0);
+}
 
 export type SavedHistory = {
   table: string;
   name: string;
-  /** Momento dell'ultima lettura (ms). */
+  /** Momento dell'ultima lettura completa (ms). */
   fetchedAt: number;
-  /** true dopo una timbratura: alla prossima apertura si rilegge. */
-  stale: boolean;
   records: Presenza[];
 };
 
@@ -29,39 +37,78 @@ export function getSavedHistory(table: string | null, name: string | null): Save
     const json = Storage.getItemSync(KEY);
     if (!json) return null;
     const saved = JSON.parse(json) as SavedHistory;
-    return saved.table === table && saved.name === name ? saved : null;
+    return saved.table === table && saved.name === name && Array.isArray(saved.records) ? saved : null;
   } catch {
     return null;
   }
 }
 
+/** Accesso Dipendenti: rilettura se la copia manca o ha più di 30 minuti. */
 export function needsRefresh(saved: SavedHistory | null) {
-  return !saved || saved.stale || Date.now() - saved.fetchedAt > MAX_AGE_MS;
+  return !saved || Date.now() - saved.fetchedAt > MAX_AGE_MS;
 }
 
-/** Dopo ogni timbratura riuscita: la copia salvata non è più aggiornata (nessuna chiamata qui). */
-export function markHistoryStale() {
+/**
+ * Dopo una timbratura riuscita: mette nella copia la riga restituita da Airtable (nuova entrata o uscita aggiornata).
+ * Solo se la copia esiste ed è della stessa tabella: una copia con una riga sola sembrerebbe completa, e le timbrature
+ * con l'Intercambio vanno in un'altra tabella.
+ */
+export function addRecordToHistory(table: string, record: AirtableRecord<PresenzaFields>) {
   try {
     const json = Storage.getItemSync(KEY);
     if (!json) return;
-    Storage.setItemSync(KEY, JSON.stringify({ ...(JSON.parse(json) as SavedHistory), stale: true }));
-  } catch {
-    // copia illeggibile: verrà riletta comunque
+    const saved = JSON.parse(json) as SavedHistory;
+    if (saved.table !== table) return;
+    const records = [record, ...saved.records.filter((item) => item.id !== record.id)];
+    records.sort(newestFirst);
+    Storage.setItemSync(KEY, JSON.stringify({ ...saved, records }));
+  } catch (error) {
+    log(`Copia Airtable: riga non aggiunta ${String(error)}`);
   }
 }
 
 /** Legge da Airtable tutte le righe del dipendente (nome senza distinguere maiuscole e spazi) e le salva. */
 export async function refreshHistory(table: string, name: string): Promise<SavedHistory> {
-  log('Accesso Dipendenti: lettura storico da Airtable');
+  log('Copia Airtable: lettura delle presenze del dipendente');
   const records = await listRecords<PresenzaFields>(table, {
     filterByFormula: `LOWER(TRIM({Nome})) = LOWER(TRIM(${formulaString(name)}))`,
-    sort: [{ field: 'Created', direction: 'desc' }],
+    sort: [{ field: 'ID', direction: 'desc' }],
     fields: FIELDS,
   });
-  const saved: SavedHistory = { table, name, fetchedAt: Date.now(), stale: false, records };
+  const saved: SavedHistory = { table, name, fetchedAt: Date.now(), records };
   Storage.setItemSync(KEY, JSON.stringify(saved));
-  log(`Accesso Dipendenti: ${records.length} presenze lette`);
+  log(`Copia Airtable: ${records.length} presenze lette`);
   return saved;
+}
+
+function createdOf(record: Presenza) {
+  return record.fields.Created ?? record.createdTime;
+}
+
+/** Data locale (AAAA-MM-GG) della presenza. */
+function localDay(record: Presenza) {
+  const created = createdOf(record);
+  if (created.length === 10) return created;
+  const date = new Date(created);
+  if (Number.isNaN(date.getTime())) return created.slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function today() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+/** "Risulta già un'entrata a tuo nome oggi": dalla copia di Airtable (senza copia: nessun avviso). */
+export function historyHasEntryToday(table: string | null, name: string | null) {
+  const day = today();
+  return getSavedHistory(table, name)?.records.some((record) => localDay(record) === day) ?? false;
+}
+
+/** Turni lasciati "al lavoro" nei giorni prima di oggi (il turno aperto di oggi è normale). */
+export function openPastShifts(records: Presenza[]) {
+  const day = today();
+  return records.filter((record) => isAtWork(record) && localDay(record) < day);
 }
 
 // --- Dati per la schermata ---

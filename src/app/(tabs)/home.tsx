@@ -1,15 +1,19 @@
 import { router, useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
+import { BrandTitle } from '@/components/BrandTitle';
 import { BusyOverlay } from '@/components/BusyOverlay';
 import { CompanyRequestBanner } from '@/components/CompanyRequestBanner';
 import { LogoHeader } from '@/components/LogoHeader';
+import { PresenzaRow } from '@/components/PresenzaRow';
 import { useQrScanner } from '@/components/QrScanner';
+import { formatTime } from '@/lib/activities';
 import { confirmAlert } from '@/lib/dialogs';
+import { dayLabel, getSavedHistory, openPastShifts, refreshHistory, type SavedHistory } from '@/lib/history';
 import { log } from '@/lib/log';
 import { showScanResult } from '@/lib/navigation';
 import { askReview, shouldAskReview } from '@/lib/review';
@@ -21,23 +25,51 @@ import {
   registerExit,
   SCAN_MESSAGES,
 } from '@/lib/scan';
-import { clearActivities, getEmployeeLocale, getEmployeeName } from '@/lib/storage';
+import { getEmployeeLocale, getEmployeeName } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 
-// Home del dipendente (SPEC §4): dati del dipendente e Registra Entrata / Uscita.
-// Le ultime attività si vedono in Accesso Dipendenti: qui resta solo un rimando.
+/** Righe di "Ultime Attività" in Home. */
+const HOME_ROWS = 5;
+
+// Home del dipendente (SPEC §4): dati del dipendente, Registra Entrata / Uscita, ultime attività e controllo dei turni
+// non chiusi. Tutto dalla copia di Airtable (lib/history.ts): nessuna chiamata in più, tranne la prima volta che la
+// copia non c'è ancora.
 export default function HomeScreen() {
   // Valori letti subito (lettura sincrona): altrimenti al primo disegno la Home mostrerebbe per un attimo
   // la versione "non registrato" anche a chi è già registrato.
   const [name, setName] = useState<string | null>(getEmployeeName);
   const [locale, setLocale] = useState<string | null>(getEmployeeLocale);
+  const [history, setHistory] = useState<SavedHistory | null>(() => getSavedHistory(getEmployeeLocale(), getEmployeeName()));
+  const [historyFailed, setHistoryFailed] = useState(false);
+  const loadingHistory = useRef(false);
   const [busy, setBusy] = useState<string | null>(null);
   const { scan, scanner } = useQrScanner();
 
-  const reload = useCallback(() => {
-    setName(getEmployeeName());
-    setLocale(getEmployeeLocale());
+  /** Lettura completa da Airtable (1 chiamata): la prima volta, o toccando l'avviso dei turni non chiusi. */
+  const loadHistory = useCallback(async (table: string, employee: string) => {
+    if (loadingHistory.current) return;
+    loadingHistory.current = true;
+    try {
+      setHistory(await refreshHistory(table, employee));
+      setHistoryFailed(false);
+    } catch (error) {
+      log(`Home: copia Airtable non letta ${String(error)}`);
+      setHistoryFailed(true);
+    } finally {
+      loadingHistory.current = false;
+    }
   }, []);
+
+  const reload = useCallback(() => {
+    const employee = getEmployeeName();
+    const table = getEmployeeLocale();
+    setName(employee);
+    setLocale(table);
+    const saved = getSavedHistory(table, employee);
+    setHistory(saved);
+    // Solo se la copia non c'è ancora (nuovo dipendente o app appena aggiornata).
+    if (!saved && table && employee) loadHistory(table, employee);
+  }, [loadHistory]);
 
   // Rilegge i dati ogni volta che la schermata torna visibile (es. dopo Scan Result o Accesso Dipendenti).
   useFocusEffect(reload);
@@ -143,9 +175,12 @@ export default function HomeScreen() {
     if (proceed) router.push('/log-error');
   };
 
-  const registerAsEmployee = () => {
-    // Come l'originale: un nuovo dipendente parte con le ultime attività vuote.
-    clearActivities();
+  /** Avviso rosso: rilegge Airtable (il manager potrebbe averli già chiusi) e apre Accesso Dipendenti. */
+  const checkOpenShifts = async () => {
+    if (!locale || !name) return;
+    setBusy('Aggiornamento dei tuoi accessi..');
+    await loadHistory(locale, name);
+    setBusy(null);
     router.navigate('/accesso');
   };
 
@@ -156,7 +191,7 @@ export default function HomeScreen() {
         <View style={styles.notRegistered}>
           <CompanyRequestBanner />
           <AppButton title="Registrati come azienda" onPress={() => router.push('/tutorial')} />
-          <AppButton title="Registrati come dipendente" onPress={registerAsEmployee} />
+          <AppButton title="Registrati come dipendente" onPress={() => router.navigate('/accesso')} />
           <AppButton title="Accedi al Tutorial" variant="outline" onPress={() => router.push('/tutorial')} />
         </View>
       </SafeAreaView>
@@ -179,7 +214,24 @@ export default function HomeScreen() {
           {/* Sempre attivo: alla scansione l'app controlla su Airtable se il dipendente è già uscito. */}
           <AppButton title="Registra Uscita" onPress={onExit} disabled={busy !== null} style={styles.flex} />
         </View>
+        <BrandTitle text="Ultime Attività" style={styles.sectionTitle} />
+        {history ? (
+          history.records.length > 0 ? (
+            <View>
+              {history.records.slice(0, HOME_ROWS).map((record) => (
+                <PresenzaRow key={record.id} record={record} />
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.empty}>Ancora nessuna attività</Text>
+          )
+        ) : (
+          <Text style={styles.empty}>
+            {historyFailed ? 'Attività non disponibili: controlla la connessione' : 'Caricamento…'}
+          </Text>
+        )}
       </ScrollView>
+      {history && <ShiftsCheck history={history} onPress={checkOpenShifts} />}
       {/* Rimando ad Accesso Dipendenti appena sopra la tab bar, con la stessa icona della scheda. */}
       <Pressable
         onPress={() => router.navigate('/accesso')}
@@ -187,12 +239,42 @@ export default function HomeScreen() {
         style={({ pressed }) => [styles.hint, pressed && styles.hintPressed]}>
         <SymbolView name={{ ios: 'person.text.rectangle.fill', android: 'badge' }} tintColor={colors.primary} size={22} />
         <Text style={styles.hintText}>
-          Ora le tue ultime attività sono in <Text style={styles.hintStrong}>Accesso Dipendenti</Text>
+          Ora puoi vedere il conteggio mensile delle tue ore in <Text style={styles.hintStrong}>Accesso Dipendenti</Text>
         </Text>
       </Pressable>
       <BusyOverlay text={busy} />
       {scanner}
     </SafeAreaView>
+  );
+}
+
+/** Controllo dei turni lasciati "al lavoro" nei giorni precedenti: verde se tutto è a posto, rosso se no. */
+function ShiftsCheck({ history, onPress }: { history: SavedHistory; onPress: () => void }) {
+  const open = openPastShifts(history.records);
+  if (open.length === 0) {
+    return (
+      <View style={styles.hint}>
+        <SymbolView name={{ ios: 'checkmark.circle.fill', android: 'check_circle' }} tintColor={colors.success} size={22} />
+        <Text style={styles.hintText}>Nessun turno lasciato aperto</Text>
+      </View>
+    );
+  }
+  const days = open.slice(0, 3).map(dayLabel).join(', ') + (open.length > 3 ? '…' : '');
+  const text = open.length === 1 ? `Hai 1 turno non chiuso: ${days}` : `Hai ${open.length} turni non chiusi: ${days}`;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityHint="Aggiorna i dati e apre Accesso Dipendenti"
+      style={({ pressed }) => [styles.hint, styles.hintAlert, pressed && styles.hintPressed]}>
+      <SymbolView name={{ ios: 'xmark.circle.fill', android: 'cancel' }} tintColor={colors.error} size={22} />
+      <View style={styles.flexShrink}>
+        <Text style={[styles.hintText, styles.alertText]}>{text}</Text>
+        <Text style={styles.updated}>
+          Aggiornato alle {formatTime(new Date(history.fetchedAt))} · tocca per aggiornare
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -211,6 +293,9 @@ const styles = StyleSheet.create({
   value: { fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center' },
   buttons: { flexDirection: 'row', gap: spacing.sm },
   flex: { flex: 1 },
+  flexShrink: { flexShrink: 1 },
+  sectionTitle: { marginTop: spacing.sm },
+  empty: { textAlign: 'center', color: colors.muted, paddingVertical: spacing.md },
   hint: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -223,6 +308,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   hintPressed: { opacity: 0.6 },
+  hintAlert: { backgroundColor: '#FDECEE' },
   hintText: { flexShrink: 1, color: colors.muted, fontSize: 14, textAlign: 'center' },
   hintStrong: { color: colors.primary, fontWeight: '700' },
+  alertText: { color: colors.error, fontWeight: '600' },
+  updated: { fontSize: 11, color: colors.muted, textAlign: 'center' },
 });
