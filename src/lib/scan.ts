@@ -9,6 +9,7 @@ import {
   type AirtableRecord,
 } from '@/lib/airtable';
 import { DEVICE } from '@/lib/device';
+import { markHistoryStale } from '@/lib/history';
 import { fetchLocale, isYes, type LocaleFields } from '@/lib/locali';
 import { getCurrentAddress } from '@/lib/location';
 import { log } from '@/lib/log';
@@ -44,7 +45,7 @@ type PresenzaFields = {
 /** Testo di avanzamento mostrato durante la timbratura (Label2 di Thunkable). */
 export type ScanStatus = (text: string) => void;
 
-export type ExitResult = { kind: 'done'; message: string } | { kind: 'alreadyOut' };
+export type ExitResult = { kind: 'done'; message: string } | { kind: 'alreadyOut' } | { kind: 'noEntry' };
 
 function maxRowsOf(locale: LocaleFields | null) {
   const value = Number(locale?.['Max Rows']);
@@ -177,6 +178,7 @@ export async function registerEntry(table: string, maxRows: number, onStatus: Sc
   addActivity({ locale: table, date: isoDate(now), type: 'Entrata', time });
   log(`Salvataggio nel dispositivo: ${table} - Entrata - ${time}`);
   countScanForReview();
+  markHistoryStale();
   onStatus('Completato');
   return SCAN_MESSAGES.ok;
 }
@@ -206,7 +208,12 @@ export async function registerExit(table: string, onStatus: ScanStatus): Promise
   }
 
   // [miglioria] "Al lavoro" senza distinguere maiuscole: il portale scrive "Al Lavoro".
-  if (!latest || latest.fields.Uscita?.trim().toLowerCase() !== 'al lavoro') {
+  // Il bottone Uscita è sempre attivo: chi non ha nessuna riga su questa tabella riceve un avviso suo.
+  if (!latest) {
+    log('Nessuna entrata del dipendente su questa tabella');
+    return { kind: 'noEntry' };
+  }
+  if (latest.fields.Uscita?.trim().toLowerCase() !== 'al lavoro') {
     log('Ultima riga del dipendente già con uscita');
     return { kind: 'alreadyOut' };
   }
@@ -233,6 +240,7 @@ export async function registerExit(table: string, onStatus: ScanStatus): Promise
   onStatus('Salvataggio dati nel dispositivo..');
   addActivity({ locale: table, date: isoDate(now), type: 'Uscita', time });
   countScanForReview();
+  markHistoryStale();
   onStatus('Completato');
   return { kind: 'done', message: SCAN_MESSAGES.ok };
 }

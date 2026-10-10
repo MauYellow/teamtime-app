@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,20 +21,30 @@ import { BrandTitle } from '@/components/BrandTitle';
 import { BusyOverlay } from '@/components/BusyOverlay';
 import { LogoHeader } from '@/components/LogoHeader';
 import { useQrScanner } from '@/components/QrScanner';
-import { activityLabel } from '@/lib/activities';
+import { formatTime } from '@/lib/activities';
 import { confirmAlert, infoAlert } from '@/lib/dialogs';
+import {
+  dayLabel,
+  formatEmployeeHours,
+  getSavedHistory,
+  historyMonths,
+  needsRefresh,
+  presenzaLabel,
+  refreshHistory,
+  type SavedHistory,
+} from '@/lib/history';
 import { fetchLocaleNames } from '@/lib/locali';
 import { log } from '@/lib/log';
+import { isAtWork, type Presenza } from '@/lib/manager';
+import { canUseOtherLocale } from '@/lib/scan';
 import { updateSession } from '@/lib/session';
 import {
-  clearActivities,
-  getActivities,
+  getEmployeeLocale,
   getEmployeeName,
   isFirstAccess,
   removeEmployee,
   saveEmployee,
   setFirstAccessDone,
-  type Activity,
 } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 
@@ -244,22 +255,40 @@ function NewEmployee() {
   );
 }
 
+// Accesso già effettuato: storico e ore lette da Airtable (lib/history.ts). "Azzera Ultime Attività" è stato tolto:
+// i dati vengono dal registro online e il dipendente non deve poterli cancellare.
 function AlreadyRegistered() {
-  const [activities, setActivities] = useState<Activity[]>(getActivities);
+  const locale = getEmployeeLocale();
+  const name = getEmployeeName();
+  const [saved, setSaved] = useState<SavedHistory | null>(() => getSavedHistory(locale, name));
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [openMonth, setOpenMonth] = useState<string | null>(null);
 
-  const resetActivities = async () => {
-    log('Accesso Dipendenti: Richiesta Azzeramento Orari');
-    const confirmed = await confirmAlert(
-      'Azzeramento Orari sul dispositivo',
-      'Procedendo eliminerai le tue ultime attività salvate su questo telefono. Gli orari registrati nel registro ' +
-        "online dell'azienda non vengono modificati.",
-      { confirm: 'Azzera', destructive: true }
-    );
-    if (!confirmed) return;
-    log('Accesso Dipendenti: Richiesta Azzeramento Orari confermata');
-    clearActivities();
-    setActivities([]);
-  };
+  /** Rilegge da Airtable solo se serve (timbratura nuova, copia vecchia) oppure trascinando la lista. */
+  const load = useCallback(
+    async (force: boolean) => {
+      if (!locale || !name) return;
+      if (!force && !needsRefresh(getSavedHistory(locale, name))) return;
+      setLoading(true);
+      try {
+        setSaved(await refreshHistory(locale, name));
+        setFailed(false);
+      } catch (error) {
+        log(`Accesso Dipendenti: errore lettura storico ${String(error)}`);
+        setFailed(true);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [locale, name]
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      load(false);
+    }, [load])
+  );
 
   const removeData = async () => {
     log('Accesso Dipendenti: Richiesta Rimozione Dati');
@@ -276,8 +305,20 @@ function AlreadyRegistered() {
     restartFromSplash();
   };
 
+  const { current, previous } = historyMonths(saved?.records ?? []);
+  const monthName = new Date().toLocaleDateString('it-IT', { month: 'long' });
+  const status = failed
+    ? 'Connessione assente: dati non aggiornati'
+    : loading && !saved
+      ? 'Caricamento…'
+      : saved
+        ? `Aggiornato alle ${formatTime(new Date(saved.fetchedAt))}`
+        : '';
+
   return (
-    <View style={styles.flex}>
+    <ScrollView
+      contentContainerStyle={styles.registered}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={() => load(true)} tintColor={colors.primary} />}>
       <View style={styles.registeredHeader}>
         <BrandTitle text="Accesso già effettuato." />
         <Text style={styles.paragraph}>
@@ -285,23 +326,67 @@ function AlreadyRegistered() {
           È un caso particolare o vorresti azzerare i tuoi dati?
         </Text>
       </View>
-      <ScrollView contentContainerStyle={styles.activities}>
-        {activities.length === 0 ? (
-          <Text style={styles.empty}>Ancora nessuna attività</Text>
-        ) : (
-          activities.map((item, index) => (
-            <Text key={index} style={styles.activity}>
-              {activityLabel(item)}
-            </Text>
-          ))
-        )}
-      </ScrollView>
-      <View style={styles.footer}>
-        <AppButton title="Azzera Ultime Attività" onPress={resetActivities} disabled={activities.length === 0} />
-        <Pressable onPress={removeData} accessibilityRole="button">
-          <Text style={styles.link}>Richiedi la rimozione dei tuoi dati</Text>
-        </Pressable>
+
+      <View style={styles.totalCard}>
+        <Text style={styles.totalLabel}>Ore lavorate a {monthName}</Text>
+        <Text style={styles.totalValue}>{saved ? formatEmployeeHours(current?.hours ?? 0) : '—'}</Text>
+        <Text style={styles.updated}>{status}</Text>
       </View>
+
+      <BrandTitle text="Ultimi accessi" size={20} />
+      {!saved ? (
+        loading ? (
+          <ActivityIndicator color={colors.primary} style={styles.loader} />
+        ) : (
+          <Text style={styles.empty}>Trascina verso il basso per caricare i tuoi accessi</Text>
+        )
+      ) : current ? (
+        current.records.map((record) => <PresenzaRow key={record.id} record={record} />)
+      ) : (
+        <Text style={styles.empty}>Nessuna presenza questo mese</Text>
+      )}
+
+      {previous.length > 0 && <BrandTitle text="Mesi precedenti" size={20} style={styles.sectionTitle} />}
+      {previous.map((month, index) => {
+        const open = openMonth === month.key;
+        return (
+          <View key={month.key}>
+            <Pressable
+              onPress={() => setOpenMonth(open ? null : month.key)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: open }}
+              style={({ pressed }) => [styles.monthRow, pressed && styles.listItemPressed]}>
+              <Text style={styles.monthLabel}>{month.label}</Text>
+              <Text style={styles.monthHours}>{formatEmployeeHours(month.hours)} ore</Text>
+              <Text style={styles.chevron}>{open ? '–' : '+'}</Text>
+            </Pressable>
+            {open && month.records.map((record) => <PresenzaRow key={record.id} record={record} />)}
+            {open && index === previous.length - 1 && (
+              <Text style={styles.note}>
+                Il registro conserva solo le presenze più recenti: questo mese potrebbe essere incompleto.
+              </Text>
+            )}
+          </View>
+        );
+      })}
+
+      {canUseOtherLocale() && (
+        <Text style={styles.note}>Le presenze registrate con il QR Code di altre aziende non sono incluse.</Text>
+      )}
+
+      <Pressable onPress={removeData} accessibilityRole="button">
+        <Text style={styles.link}>Richiedi la rimozione dei tuoi dati</Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
+/** "Ven 10/10   9:00 → 17:30 · 8,50 ore" */
+function PresenzaRow({ record }: { record: Presenza }) {
+  return (
+    <View style={styles.activityRow}>
+      <Text style={styles.activityDay}>{dayLabel(record)}</Text>
+      <Text style={[styles.activityText, isAtWork(record) && styles.atWork]}>{presenzaLabel(record)}</Text>
     </View>
   );
 }
@@ -352,21 +437,43 @@ const styles = StyleSheet.create({
   listItemPressed: { backgroundColor: colors.border },
   listText: { flex: 1, fontSize: 16, color: colors.text },
   chevron: { fontSize: 22, color: colors.muted },
-  registeredHeader: {
-    padding: spacing.md,
-    gap: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
+  registered: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
+  registeredHeader: { gap: spacing.sm, marginBottom: spacing.sm },
   paragraph: { fontSize: 15, color: colors.text, textAlign: 'center', lineHeight: 21 },
-  activities: { paddingHorizontal: spacing.md },
-  activity: {
-    paddingVertical: spacing.md,
+  totalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    alignItems: 'center',
+    gap: 2,
+    marginBottom: spacing.sm,
+  },
+  totalLabel: { fontSize: 14, color: colors.muted },
+  totalValue: { fontSize: 34, fontWeight: '800', color: colors.primary },
+  updated: { fontSize: 12, color: colors.muted },
+  sectionTitle: { marginTop: spacing.md },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm + 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
-    color: colors.text,
-    fontSize: 15,
   },
+  activityDay: { width: 76, fontSize: 14, fontWeight: '600', color: colors.text },
+  activityText: { flex: 1, fontSize: 15, color: colors.text },
+  atWork: { color: colors.primary, fontWeight: '600' },
+  monthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  monthLabel: { flex: 1, fontSize: 16, fontWeight: '600', color: colors.text },
+  monthHours: { fontSize: 15, color: colors.text },
+  note: { fontSize: 12, color: colors.muted, textAlign: 'center', fontStyle: 'italic', marginTop: spacing.sm },
   empty: { textAlign: 'center', color: colors.muted, paddingVertical: spacing.lg },
-  footer: { padding: spacing.md, gap: spacing.xs, alignItems: 'stretch' },
 });

@@ -21,13 +21,7 @@ import {
   registerExit,
   SCAN_MESSAGES,
 } from '@/lib/scan';
-import {
-  clearActivities,
-  getActivities,
-  getEmployeeLocale,
-  getEmployeeName,
-  type Activity,
-} from '@/lib/storage';
+import { clearActivities, getEmployeeLocale, getEmployeeName } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 
 // Home del dipendente (SPEC §4): dati del dipendente e Registra Entrata / Uscita.
@@ -37,14 +31,12 @@ export default function HomeScreen() {
   // la versione "non registrato" anche a chi è già registrato.
   const [name, setName] = useState<string | null>(getEmployeeName);
   const [locale, setLocale] = useState<string | null>(getEmployeeLocale);
-  const [activities, setActivities] = useState<Activity[]>(getActivities);
   const [busy, setBusy] = useState<string | null>(null);
   const { scan, scanner } = useQrScanner();
 
   const reload = useCallback(() => {
     setName(getEmployeeName());
     setLocale(getEmployeeLocale());
-    setActivities(getActivities());
   }, []);
 
   // Rilegge i dati ogni volta che la schermata torna visibile (es. dopo Scan Result o Accesso Dipendenti).
@@ -59,8 +51,6 @@ export default function HomeScreen() {
       return () => clearTimeout(timer);
     }, [])
   );
-
-  const lastIsEntry = activities[0]?.type === 'Entrata';
 
   const onEntry = async () => {
     if (!locale) return;
@@ -133,6 +123,11 @@ export default function HomeScreen() {
         Alert.alert('Attenzione!', 'Risulti già uscito da lavoro. Solo il manager può modificare gli orari');
         return;
       }
+      if (result.kind === 'noEntry') {
+        setBusy(null);
+        Alert.alert('Attenzione!', "Non risulta nessuna entrata a tuo nome da chiudere. Registra prima l'entrata.");
+        return;
+      }
       showScanResult(result.message);
     } finally {
       setBusy(null);
@@ -181,12 +176,8 @@ export default function HomeScreen() {
         </View>
         <View style={styles.buttons}>
           <AppButton title="Registra Entrata" onPress={onEntry} disabled={busy !== null} style={styles.flex} />
-          <AppButton
-            title="Registra Uscita"
-            onPress={onExit}
-            disabled={!lastIsEntry || busy !== null}
-            style={styles.flex}
-          />
+          {/* Sempre attivo: alla scansione l'app controlla su Airtable se il dipendente è già uscito. */}
+          <AppButton title="Registra Uscita" onPress={onExit} disabled={busy !== null} style={styles.flex} />
         </View>
       </ScrollView>
       {/* Rimando ad Accesso Dipendenti appena sopra la tab bar, con la stessa icona della scheda. */}
