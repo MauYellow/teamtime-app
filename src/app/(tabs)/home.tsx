@@ -1,15 +1,14 @@
 import { router, useFocusEffect } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
-import { BrandTitle } from '@/components/BrandTitle';
 import { BusyOverlay } from '@/components/BusyOverlay';
 import { CompanyRequestBanner } from '@/components/CompanyRequestBanner';
 import { LogoHeader } from '@/components/LogoHeader';
 import { useQrScanner } from '@/components/QrScanner';
-import { activityLabel } from '@/lib/activities';
 import { confirmAlert } from '@/lib/dialogs';
 import { log } from '@/lib/log';
 import { showScanResult } from '@/lib/navigation';
@@ -31,7 +30,8 @@ import {
 } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 
-// Home del dipendente (SPEC §4): dati del dipendente, Registra Entrata / Uscita, ultime attività.
+// Home del dipendente (SPEC §4): dati del dipendente e Registra Entrata / Uscita.
+// Le ultime attività si vedono in Accesso Dipendenti: qui resta solo un rimando.
 export default function HomeScreen() {
   // Valori letti subito (lettura sincrona): altrimenti al primo disegno la Home mostrerebbe per un attimo
   // la versione "non registrato" anche a chi è già registrato.
@@ -171,35 +171,34 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <LogoHeader onPress={openLogError} />
-      <FlatList
-        data={activities}
-        keyExtractor={(_, index) => String(index)}
-        contentContainerStyle={styles.content}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <CompanyRequestBanner />
-            <View style={styles.card}>
-              <Text style={styles.label}>Nome Dipendente</Text>
-              <Text style={styles.value}>{name}</Text>
-              <Text style={styles.label}>Azienda</Text>
-              <Text style={styles.value}>{locale}</Text>
-            </View>
-            <View style={styles.buttons}>
-              <AppButton title="Registra Entrata" onPress={onEntry} disabled={busy !== null} style={styles.flex} />
-              <AppButton
-                title="Registra Uscita"
-                onPress={onExit}
-                disabled={!lastIsEntry || busy !== null}
-                style={styles.flex}
-              />
-            </View>
-            <Text style={styles.caption}>Scan QR Code per iniziare</Text>
-            <BrandTitle text="Ultime Attività" style={styles.sectionTitle} />
-          </View>
-        }
-        ListEmptyComponent={<Text style={styles.empty}>Ancora nessuna attività</Text>}
-        renderItem={({ item }) => <Text style={styles.row}>{activityLabel(item)}</Text>}
-      />
+      <ScrollView contentContainerStyle={styles.content}>
+        <CompanyRequestBanner />
+        <View style={styles.card}>
+          <Text style={styles.label}>Nome Dipendente</Text>
+          <Text style={styles.value}>{name}</Text>
+          <Text style={styles.label}>Azienda</Text>
+          <Text style={styles.value}>{locale}</Text>
+        </View>
+        <View style={styles.buttons}>
+          <AppButton title="Registra Entrata" onPress={onEntry} disabled={busy !== null} style={styles.flex} />
+          <AppButton
+            title="Registra Uscita"
+            onPress={onExit}
+            disabled={!lastIsEntry || busy !== null}
+            style={styles.flex}
+          />
+        </View>
+      </ScrollView>
+      {/* Rimando ad Accesso Dipendenti appena sopra la tab bar, con la stessa icona della scheda. */}
+      <Pressable
+        onPress={() => router.navigate('/accesso')}
+        accessibilityRole="link"
+        style={({ pressed }) => [styles.hint, pressed && styles.hintPressed]}>
+        <SymbolView name={{ ios: 'person.text.rectangle.fill', android: 'badge' }} tintColor={colors.primary} size={22} />
+        <Text style={styles.hintText}>
+          Ora le tue ultime attività sono in <Text style={styles.hintStrong}>Accesso Dipendenti</Text>
+        </Text>
+      </Pressable>
       <BusyOverlay text={busy} />
       {scanner}
     </SafeAreaView>
@@ -209,8 +208,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   notRegistered: { flex: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.md },
-  content: { padding: spacing.md, paddingBottom: spacing.xl },
-  header: { gap: spacing.md, marginBottom: spacing.sm },
+  content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.card,
@@ -222,14 +220,18 @@ const styles = StyleSheet.create({
   value: { fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center' },
   buttons: { flexDirection: 'row', gap: spacing.sm },
   flex: { flex: 1 },
-  caption: { textAlign: 'center', fontStyle: 'italic', color: colors.muted, fontSize: 13, marginTop: -spacing.sm },
-  sectionTitle: { marginTop: spacing.sm },
-  empty: { textAlign: 'center', color: colors.muted, paddingVertical: spacing.lg },
-  row: {
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    color: colors.text,
-    fontSize: 15,
+  hint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.card,
+    backgroundColor: colors.surface,
   },
+  hintPressed: { opacity: 0.6 },
+  hintText: { flexShrink: 1, color: colors.muted, fontSize: 14, textAlign: 'center' },
+  hintStrong: { color: colors.primary, fontWeight: '700' },
 });
