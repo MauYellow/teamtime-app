@@ -2,7 +2,16 @@ import Storage from 'expo-sqlite/kv-store';
 
 import { formulaString, listRecords, type AirtableRecord } from '@/lib/airtable';
 import { log } from '@/lib/log';
-import { availableMonths, hoursOf, isAtWork, recordsOfMonth, type Month, type Presenza, type PresenzaFields } from '@/lib/manager';
+import {
+  availableMonths,
+  hoursOf,
+  isAtWork,
+  MONTHS,
+  recordsOfMonth,
+  type Month,
+  type Presenza,
+  type PresenzaFields,
+} from '@/lib/manager';
 
 // "Copia di Airtable": le presenze del dipendente nella tabella del suo locale, così come Airtable le ha restituite,
 // salvate sul telefono. È l'UNICA fonte per Home (ultime attività, turni non chiusi, "già un'entrata oggi") e per
@@ -78,7 +87,77 @@ export async function refreshHistory(table: string, name: string): Promise<Saved
   const saved: SavedHistory = { table, name, fetchedAt: Date.now(), records };
   Storage.setItemSync(KEY, JSON.stringify(saved));
   log(`Copia Airtable: ${records.length} presenze lette`);
+  saveMonthlyTotals(table, name, records);
   return saved;
+}
+
+// --- Totali dei mesi passati salvati sul telefono ---
+// Le righe vecchie spariscono (Max Rows), quindi il totale di un mese passato si salva e si aggiorna SOLO finché il mese
+// è sicuramente completo: cioè esiste ancora una presenza del dipendente più vecchia dell'inizio del mese (la
+// cancellazione parte dalle righe più vecchie). Quando il mese non è più completo resta l'ultimo totale salvato, che è
+// quello definitivo (le righe cancellate non le può più correggere nemmeno il manager). Mai un totale calcolato su un
+// mese tagliato: in quel caso "Totale non disponibile".
+
+const TOTALS_KEY = 'totaliMensili';
+/** Mesi passati tenuti sul telefono. */
+const TOTALS_KEEP = 12;
+
+type SavedTotal = { label: string; hours: number; order: number };
+type SavedTotals = { table: string; name: string; months: Record<string, SavedTotal> };
+
+function monthOrder(month: Month) {
+  return Number(month.year || 0) * 100 + MONTHS.indexOf(month.month);
+}
+
+/** "2026-09-01" */
+function monthStart(month: Month) {
+  return `${month.year}-${String(MONTHS.indexOf(month.month) + 1).padStart(2, '0')}-01`;
+}
+
+function readTotals(table: string, name: string): Record<string, SavedTotal> {
+  try {
+    const json = Storage.getItemSync(TOTALS_KEY);
+    if (!json) return {};
+    const saved = JSON.parse(json) as SavedTotals;
+    return saved.table === table && saved.name === name ? saved.months : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMonthlyTotals(table: string, name: string, records: Presenza[]) {
+  if (records.length === 0) return;
+  const oldestDay = records.map(localDay).sort()[0];
+  const current = currentMonthKey();
+  const months = { ...readTotals(table, name) };
+  for (const month of monthsWithHours(records)) {
+    if (month.key === current || MONTHS.indexOf(month.month) < 0) continue;
+    if (oldestDay < monthStart(month)) {
+      months[month.key] = { label: month.label, hours: month.hours, order: monthOrder(month) };
+    }
+  }
+  const kept = Object.entries(months)
+    .sort(([, a], [, b]) => b.order - a.order)
+    .slice(0, TOTALS_KEEP);
+  Storage.setItemSync(TOTALS_KEY, JSON.stringify({ table, name, months: Object.fromEntries(kept) }));
+}
+
+export type PastMonth = { key: string; label: string; /** null = non si può sapere il totale giusto */ hours: number | null };
+
+/** Mesi passati per Accesso Dipendenti: totali salvati più i mesi ancora nella copia ma non verificabili. */
+export function pastMonths(table: string | null, name: string | null, records: Presenza[]): PastMonth[] {
+  if (!table || !name) return [];
+  const saved = readTotals(table, name);
+  const current = currentMonthKey();
+  const list = new Map<string, PastMonth & { order: number }>();
+  for (const month of availableMonths(records)) {
+    if (month.key === current) continue;
+    list.set(month.key, { key: month.key, label: month.label, hours: null, order: monthOrder(month) });
+  }
+  for (const [key, total] of Object.entries(saved)) {
+    if (key !== current) list.set(key, { key, label: total.label, hours: total.hours, order: total.order });
+  }
+  return [...list.values()].sort((a, b) => b.order - a.order).slice(0, TOTALS_KEEP);
 }
 
 function createdOf(record: Presenza) {
@@ -122,16 +201,17 @@ function currentMonthKey() {
 }
 
 /** Mesi con le loro presenze e le ore (calcolate come il Conteggio del manager), dal più recente. */
-export function historyMonths(records: Presenza[]): { current: HistoryMonth | null; previous: HistoryMonth[] } {
-  const months = availableMonths(records).map((month) => {
+function monthsWithHours(records: Presenza[]): HistoryMonth[] {
+  return availableMonths(records).map((month) => {
     const list = recordsOfMonth(records, month);
     return { ...month, records: list, hours: list.reduce((sum, record) => sum + hoursOf(record), 0) };
   });
+}
+
+/** Il mese in corso, con presenze e ore (null se questo mese non ci sono presenze). */
+export function currentMonth(records: Presenza[]): HistoryMonth | null {
   const key = currentMonthKey();
-  return {
-    current: months.find((month) => month.key === key) ?? null,
-    previous: months.filter((month) => month.key !== key),
-  };
+  return monthsWithHours(records).find((month) => month.key === key) ?? null;
 }
 
 /** "8,50" */

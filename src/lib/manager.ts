@@ -87,7 +87,8 @@ export function setExitTime(table: string, recordId: string, time: Date) {
 
 // --- Conteggio ---
 
-const MONTHS = [
+/** Mesi come nel campo "Mese Nome" di Airtable. */
+export const MONTHS = [
   'gennaio',
   'febbraio',
   'marzo',

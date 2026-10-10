@@ -24,7 +24,15 @@ import { PresenzaRow } from '@/components/PresenzaRow';
 import { useQrScanner } from '@/components/QrScanner';
 import { formatTime } from '@/lib/activities';
 import { confirmAlert, infoAlert } from '@/lib/dialogs';
-import { formatEmployeeHours, getSavedHistory, historyMonths, needsRefresh, refreshHistory, type SavedHistory } from '@/lib/history';
+import {
+  currentMonth,
+  formatEmployeeHours,
+  getSavedHistory,
+  needsRefresh,
+  pastMonths,
+  refreshHistory,
+  type SavedHistory,
+} from '@/lib/history';
 import { fetchLocaleNames } from '@/lib/locali';
 import { log } from '@/lib/log';
 import { canUseOtherLocale } from '@/lib/scan';
@@ -254,7 +262,6 @@ function AlreadyRegistered() {
   const [saved, setSaved] = useState<SavedHistory | null>(() => getSavedHistory(locale, name));
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [openMonth, setOpenMonth] = useState<string | null>(null);
 
   /** Rilegge da Airtable solo se serve (timbratura nuova, copia vecchia) oppure trascinando la lista. */
   const load = useCallback(
@@ -296,7 +303,8 @@ function AlreadyRegistered() {
     restartFromSplash();
   };
 
-  const { current, previous } = historyMonths(saved?.records ?? []);
+  const current = currentMonth(saved?.records ?? []);
+  const previous = pastMonths(locale, name, saved?.records ?? []);
   const monthName = new Date().toLocaleDateString('it-IT', { month: 'long' });
   const status = failed
     ? 'Connessione assente: dati non aggiornati'
@@ -337,29 +345,24 @@ function AlreadyRegistered() {
         <Text style={styles.empty}>Nessuna presenza questo mese</Text>
       )}
 
-      {previous.length > 0 && <BrandTitle text="Mesi precedenti" size={20} style={styles.sectionTitle} />}
-      {previous.map((month, index) => {
-        const open = openMonth === month.key;
-        return (
-          <View key={month.key}>
-            <Pressable
-              onPress={() => setOpenMonth(open ? null : month.key)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: open }}
-              style={({ pressed }) => [styles.monthRow, pressed && styles.listItemPressed]}>
+      {/* Mesi passati: solo il totale (salvato finché il mese era completo, vedi lib/history.ts). */}
+      {previous.length > 0 && (
+        <>
+          <BrandTitle text="Mesi precedenti" size={20} style={styles.sectionTitle} />
+          {previous.map((month) => (
+            <View key={month.key} style={styles.monthRow}>
               <Text style={styles.monthLabel}>{month.label}</Text>
-              <Text style={styles.monthHours}>{formatEmployeeHours(month.hours)} ore</Text>
-              <Text style={styles.chevron}>{open ? '–' : '+'}</Text>
-            </Pressable>
-            {open && month.records.map((record) => <PresenzaRow key={record.id} record={record} />)}
-            {open && index === previous.length - 1 && (
-              <Text style={styles.note}>
-                Il registro conserva solo le presenze più recenti: questo mese potrebbe essere incompleto.
+              <Text style={[styles.monthHours, month.hours === null && styles.unavailable]}>
+                {month.hours === null ? 'Totale non disponibile' : `${formatEmployeeHours(month.hours)} ore`}
               </Text>
-            )}
-          </View>
-        );
-      })}
+            </View>
+          ))}
+          <Text style={styles.note}>
+            Per i mesi precedenti è visibile solo il totale. Il dettaglio delle presenze è nel registro del tuo
+            responsabile.
+          </Text>
+        </>
+      )}
 
       {canUseOtherLocale() && (
         <Text style={styles.note}>Le presenze registrate con il QR Code di altre aziende non sono incluse.</Text>
@@ -446,6 +449,7 @@ const styles = StyleSheet.create({
   },
   monthLabel: { flex: 1, fontSize: 16, fontWeight: '600', color: colors.text },
   monthHours: { fontSize: 15, color: colors.text },
+  unavailable: { color: colors.muted, fontStyle: 'italic', fontSize: 13 },
   note: { fontSize: 12, color: colors.muted, textAlign: 'center', fontStyle: 'italic', marginTop: spacing.sm },
   empty: { textAlign: 'center', color: colors.muted, paddingVertical: spacing.lg },
 });
