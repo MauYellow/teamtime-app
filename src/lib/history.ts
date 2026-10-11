@@ -76,6 +76,18 @@ export function addRecordToHistory(table: string, record: AirtableRecord<Presenz
   }
 }
 
+/** Toglie dalla copia una riga che su Airtable non esiste più (cancellata dal manager). */
+export function removeRecordFromHistory(id: string) {
+  try {
+    const json = Storage.getItemSync(KEY);
+    if (!json) return;
+    const saved = JSON.parse(json) as SavedHistory;
+    Storage.setItemSync(KEY, JSON.stringify({ ...saved, records: saved.records.filter((item) => item.id !== id) }));
+  } catch (error) {
+    log(`Copia Airtable: riga non tolta ${String(error)}`);
+  }
+}
+
 /** Legge da Airtable tutte le righe del dipendente (nome senza distinguere maiuscole e spazi) e le salva. */
 export async function refreshHistory(table: string, name: string): Promise<SavedHistory> {
   log('Copia Airtable: lettura delle presenze del dipendente');
@@ -165,7 +177,7 @@ function createdOf(record: Presenza) {
 }
 
 /** Data locale (AAAA-MM-GG) della presenza. */
-function localDay(record: Presenza) {
+export function localDay(record: Presenza) {
   const created = createdOf(record);
   if (created.length === 10) return created;
   const date = new Date(created);
@@ -173,7 +185,7 @@ function localDay(record: Presenza) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function today() {
+export function today() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }

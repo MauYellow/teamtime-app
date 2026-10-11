@@ -45,6 +45,7 @@ export type PresenzaFields = {
   Giorni?: string;
   'Giorno Corretto'?: string;
   'Ore Lavorate'?: number | { specialValue: string };
+  'GPS Uscita'?: string;
   /** Numero progressivo di Airtable: ordina le righe dello stesso giorno (Created è solo una data). */
   ID?: number;
 };

@@ -19,6 +19,8 @@ export type LocaleFields = {
   'Monitor Ore Mensili'?: string;
   'Fine Prova'?: string;
   'Ragione Sociale'?: string;
+  /** Impostazioni del locale in JSON (vedi lib/preferences.ts). */
+  Preferenze?: string;
 };
 
 /** I campi GPS e Intercambio contengono valori misti ("yes", "no", "No GPS"...): attivo solo se "yes". */

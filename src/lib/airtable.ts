@@ -90,6 +90,11 @@ export async function findFirst<T>(table: string, filterByFormula: string): Prom
   return records[0] ?? null;
 }
 
+/** Una riga per ID. */
+export function getRecord<T>(table: string, id: string) {
+  return request<AirtableRecord<T>>(`${tableUrl(table)}/${id}`);
+}
+
 export function createRecord<T>(table: string, fields: Partial<T>) {
   return request<AirtableRecord<T>>(tableUrl(table), {
     method: 'POST',
