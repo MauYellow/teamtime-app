@@ -1,7 +1,8 @@
-import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ManagerExit } from '@/components/ManagerExit';
 
 import { LogoHeader } from '@/components/LogoHeader';
 import { EULA_URL, PRIVACY_URL } from '@/config';
@@ -36,8 +37,7 @@ async function open(url: string) {
 
 type Row = { label: string; value: string | null | undefined; info?: string };
 
-// "Il tuo piano" (SPEC §8): dati dell'abbonamento del locale, senza acquisti. Da qui si aprono le impostazioni dei
-// dipendenti (colonna Preferenze).
+// "Il tuo piano" (SPEC §8): dati dell'abbonamento del locale, senza acquisti.
 export default function PianoScreen() {
   const { manager } = useSession();
   // "Fine prova" solo se l'abbonamento non risulta pagato (il portale la compila all'inizio della prova e la lascia).
@@ -60,6 +60,7 @@ export default function PianoScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <ManagerExit />
       <ScrollView contentContainerStyle={styles.content}>
         <LogoHeader variant="icon" />
         <Text style={styles.title}>Il tuo piano</Text>
@@ -85,18 +86,6 @@ export default function PianoScreen() {
             ))}
         </View>
 
-        <Pressable
-          onPress={() => router.navigate('/impostazioni')}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.settings, pressed && styles.pressed]}>
-          <SymbolView name={{ ios: 'gearshape.fill', android: 'settings' }} tintColor={colors.primary} size={24} />
-          <View style={styles.flex}>
-            <Text style={styles.settingsTitle}>Impostazioni dipendenti</Text>
-            <Text style={styles.settingsText}>Uscite dimenticate, ferie e permessi</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </Pressable>
-
         <Text style={styles.note}>Puoi disdire il tuo abbonamento in qualsiasi momento.</Text>
         <Text style={styles.legal}>
           Usando TeamTime accetti i{' '}
@@ -117,7 +106,6 @@ export default function PianoScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingTop: 0, gap: spacing.md },
-  flex: { flex: 1 },
   title: { fontSize: 22, fontWeight: '700', color: colors.text, textAlign: 'center', marginTop: spacing.sm },
   card: { backgroundColor: colors.surface, borderRadius: radius.card, padding: spacing.md },
   row: {
@@ -132,18 +120,6 @@ const styles = StyleSheet.create({
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexShrink: 1 },
   label: { color: colors.muted, fontSize: 15 },
   value: { color: colors.text, fontSize: 15, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
-  settings: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.card,
-    backgroundColor: '#FDECEE',
-  },
-  pressed: { opacity: 0.6 },
-  settingsTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  settingsText: { fontSize: 13, color: colors.muted, marginTop: 2 },
-  chevron: { fontSize: 24, color: colors.muted },
   note: { textAlign: 'center', color: colors.muted, fontSize: 14, marginTop: spacing.sm },
   legal: { textAlign: 'center', color: colors.muted, fontSize: 13, lineHeight: 19 },
   link: { color: colors.primary, textDecorationLine: 'underline' },

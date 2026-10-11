@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ManagerExit } from '@/components/ManagerExit';
+
 import { AppButton } from '@/components/AppButton';
 import { confirmAlert } from '@/lib/dialogs';
 import { log } from '@/lib/log';
@@ -111,6 +113,7 @@ export default function ConteggioScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <ManagerExit />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Seleziona qui sotto uno dei mesi disponibili per effettuare il conteggio:</Text>
         {failed ? (

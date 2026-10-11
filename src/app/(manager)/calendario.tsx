@@ -1,13 +1,15 @@
 import { useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ManagerExit } from '@/components/ManagerExit';
 
 import { formatTime } from '@/lib/activities';
 import { formatEmployeeHours, localDay, today } from '@/lib/history';
 import { log } from '@/lib/log';
-import { fetchAllPresenze, hoursOf, isAtWork, type Presenza } from '@/lib/manager';
+import { fetchMonthPresenze, hoursOf, isAtWork, type Presenza } from '@/lib/manager';
 import { useSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -36,7 +38,11 @@ function entryMinutes(record: Presenza) {
 
 // Calendario (SPEC §8) [miglioria 11/10/2026]: calendario mensile nell'app al posto della vista web di Airtable.
 // Pallino con il numero di presenze per giorno (rosso se c'è un turno non chiuso di un giorno passato); tocco sul giorno
-// → elenco dei dipendenti. Una lettura di tutte le presenze (come il Conteggio), poi tutto sul telefono.
+// → elenco dei dipendenti. Si legge solo il mese visualizzato (1 chiamata ogni 100 presenze del mese) e lo si
+// ricorda finché l'app resta aperta: tornando su un mese già visto non si rilegge (aggiornamento con l'icona).
+/** Mesi già letti in questa apertura dell'app: chiave "locale:AAAA-MM". */
+const monthCache = new Map<string, { records: Presenza[]; fetchedAt: Date }>();
+
 export default function CalendarioScreen() {
   const { manager } = useSession();
   const table = manager?.Locale ?? '';
@@ -47,29 +53,41 @@ export default function CalendarioScreen() {
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
-  const loaded = useRef(false);
+  const cacheKey = `${table}:${dayKey(month.year, month.month, 1).slice(0, 7)}`;
 
-  const load = useCallback(async () => {
-    if (!table) return;
-    setLoading(true);
-    try {
-      setRecords(await fetchAllPresenze(table));
-      setFetchedAt(new Date());
-      setFailed(false);
-    } catch (error) {
-      log(`Calendario: errore caricamento ${String(error)}`);
-      setFailed(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [table]);
+  /** Mese visualizzato: dalla memoria se già letto, altrimenti da Airtable (force = icona di aggiornamento). */
+  const load = useCallback(
+    async (force: boolean) => {
+      if (!table) return;
+      const cached = monthCache.get(cacheKey);
+      if (cached && !force) {
+        setRecords(cached.records);
+        setFetchedAt(cached.fetchedAt);
+        setFailed(false);
+        return;
+      }
+      setLoading(true);
+      if (!cached) setRecords(null);
+      try {
+        const list = await fetchMonthPresenze(table, month.year, month.month);
+        const entry = { records: list, fetchedAt: new Date() };
+        monthCache.set(cacheKey, entry);
+        setRecords(entry.records);
+        setFetchedAt(entry.fetchedAt);
+        setFailed(false);
+      } catch (error) {
+        log(`Calendario: errore caricamento ${String(error)}`);
+        setFailed(true);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [table, cacheKey, month.year, month.month]
+  );
 
-  // Prima apertura: lettura. Poi si aggiorna con l'icona (niente letture a ogni cambio di scheda).
   useFocusEffect(
     useCallback(() => {
-      if (loaded.current) return;
-      loaded.current = true;
-      load();
+      load(false);
     }, [load])
   );
 
@@ -84,7 +102,6 @@ export default function CalendarioScreen() {
     return map;
   }, [records]);
 
-  const oldestDay = useMemo(() => [...byDay.keys()].sort()[0] ?? null, [byDay]);
   const todayKey = today();
 
   // Griglia del mese, settimane che iniziano di lunedì.
@@ -98,7 +115,9 @@ export default function CalendarioScreen() {
   while (cells.length % 7 !== 0) cells.push(null);
 
   const monthLabel = capitalize(first.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }));
-  const beforeData = oldestDay !== null && dayKey(month.year, month.month, daysInMonth) < oldestDay;
+  // Mese passato senza nessuna presenza: probabilmente già cancellato dal limite di righe del registro.
+  const emptyPastMonth =
+    records !== null && records.length === 0 && dayKey(month.year, month.month, daysInMonth) < todayKey;
 
   /** Cambio mese: si seleziona oggi se è in quel mese, altrimenti il primo giorno. */
   const changeMonth = (delta: number) => {
@@ -117,6 +136,7 @@ export default function CalendarioScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <ManagerExit />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Calendario presenze</Text>
 
@@ -176,7 +196,7 @@ export default function CalendarioScreen() {
         </View>
 
         <Pressable
-          onPress={load}
+          onPress={() => load(true)}
           disabled={loading}
           accessibilityRole="button"
           accessibilityLabel="Aggiorna"
@@ -202,9 +222,9 @@ export default function CalendarioScreen() {
         </View>
         {records === null ? (
           loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null
-        ) : beforeData || (oldestDay !== null && selected < oldestDay) ? (
+        ) : emptyPastMonth ? (
           <Text style={styles.empty}>
-            Nessun dato per questo periodo: il registro conserva solo le presenze più recenti.
+            Nessuna presenza in questo mese: il registro conserva solo le presenze più recenti.
           </Text>
         ) : selectedRecords.length === 0 ? (
           <Text style={styles.empty}>Nessuna presenza in questo giorno</Text>

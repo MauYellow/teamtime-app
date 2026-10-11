@@ -1,10 +1,10 @@
-import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
+import { ManagerExit } from '@/components/ManagerExit';
 import { SectionHeader } from '@/components/SectionHeader';
 import { findFirst, formulaString, updateRecord, type AirtableRecord } from '@/lib/airtable';
 import { writeCache } from '@/lib/cache';
@@ -14,8 +14,8 @@ import { localePreferences, type LocalePreferences } from '@/lib/preferences';
 import { getSession, updateSession, useSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
-// Area manager → Impostazioni (SPEC §16): rappresentano il JSON della colonna "Preferenze" di Locali Approvati del
-// locale del manager (dopo il login del Registro Online). Si apre da "Il tuo piano".
+// Area manager → Impostazioni (SPEC §16): rappresentano il JSON della colonna "Impostazioni" di Locali Approvati del
+// locale del manager (dopo il login del Registro Online). Scheda "Impostazioni" del menu manager.
 export default function ImpostazioniScreen() {
   const { manager } = useSession();
   const locale = manager?.Locale ?? null;
@@ -51,14 +51,14 @@ export default function ImpostazioniScreen() {
     setSaving(true);
     try {
       const updated = await updateRecord<LocaleFields>(LOCALI_TABLE, record.id, {
-        Preferenze: JSON.stringify(preferences),
+        Impostazioni: JSON.stringify(preferences),
       });
       // Sessione aggiornata subito: area manager e, se è anche il locale del dipendente su questo telefono, Gestisci.
       const sameAsEmployee = getSession().locale?.Locale === locale;
       updateSession(sameAsEmployee ? { manager: updated.fields, locale: updated.fields } : { manager: updated.fields });
       writeCache(localeCacheKey(locale ?? ''), updated.fields);
       log(`Impostazioni salvate per ${locale}: ${JSON.stringify(preferences)}`);
-      Alert.alert('Salvato', 'Le impostazioni sono state aggiornate.', [{ text: 'OK', onPress: () => router.navigate('/piano') }]);
+      Alert.alert('Salvato', 'Le impostazioni sono state aggiornate.', [{ text: 'OK' }]);
     } catch (error) {
       log(`Impostazioni: errore salvataggio ${String(error)}`);
       Alert.alert('Non salvato', 'Controlla la connessione e riprova.');
@@ -68,7 +68,8 @@ export default function ImpostazioniScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <ManagerExit />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Impostazioni dipendenti</Text>
         <Text style={styles.subtitle}>{locale}</Text>
@@ -131,7 +132,7 @@ export default function ImpostazioniScreen() {
               disabled={!canSave}
             />
 
-            <Text style={styles.jsonLabel}>Come verrà salvato nella colonna Preferenze:</Text>
+            <Text style={styles.jsonLabel}>Come verrà salvato nella colonna Impostazioni:</Text>
             <Text style={styles.json} selectable>
               {JSON.stringify(preferences, null, 2)}
             </Text>
@@ -139,7 +140,6 @@ export default function ImpostazioniScreen() {
             {canSave && <AppButton title="Salva" onPress={save} loading={saving} style={styles.save} />}
           </>
         )}
-        <AppButton title="Indietro" variant="outline" onPress={() => router.navigate('/piano')} />
       </ScrollView>
     </SafeAreaView>
   );

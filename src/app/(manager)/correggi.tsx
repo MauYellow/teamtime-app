@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ManagerExit } from '@/components/ManagerExit';
+
 import { useTimePicker } from '@/components/TimePicker';
 import { formatTime } from '@/lib/activities';
 import { log } from '@/lib/log';
@@ -63,6 +65,7 @@ export default function CorreggiScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <ManagerExit />
       <View style={styles.header}>
         <Text style={styles.title}>Correzione Orari Dipendenti</Text>
         <Text style={styles.hint}>

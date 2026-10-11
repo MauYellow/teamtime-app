@@ -1,8 +1,8 @@
 import type { LocaleFields } from '@/lib/locali';
 
-// Impostazioni del locale: colonna "Preferenze" di Locali Approvati, testo JSON (SPEC §16). Le chiavi mancanti o non
-// valide prendono il valore predefinito. In futuro le modificherà il manager dalla sezione Impostazioni dell'area
-// manager. Esempio:
+// Impostazioni del locale: colonna "Impostazioni" (prima "Preferenze") di Locali Approvati, testo JSON (SPEC §16).
+// Le chiavi mancanti o non valide prendono il valore predefinito. Le modifica il manager dall'area manager
+// (scheda Impostazioni). Esempio:
 // {"correzioneUscite": true, "giorniCorrezione": 7, "oreMaxTurno": 16, "richieste": true}
 
 export type LocalePreferences = {
@@ -30,7 +30,7 @@ export const DEFAULT_PREFERENCES: LocalePreferences = {
 export function localePreferences(locale: LocaleFields | null): LocalePreferences {
   let raw: Record<string, unknown> = {};
   try {
-    const parsed = JSON.parse(locale?.Preferenze || '{}');
+    const parsed = JSON.parse(locale?.Impostazioni || '{}');
     if (parsed && typeof parsed === 'object') raw = parsed as Record<string, unknown>;
   } catch {
     // JSON non valido: valori predefiniti

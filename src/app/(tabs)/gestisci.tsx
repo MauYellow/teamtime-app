@@ -22,7 +22,7 @@ import { colors, radius, spacing } from '@/theme';
 const NOT_ACTIVE = "Questa funzione non è attiva per l'azienda in cui lavori.";
 
 // Gestisci (SPEC §16): uscite dimenticate corrette dal dipendente e, in futuro, richieste di ferie e permessi.
-// Sempre visibile; ogni parte si usa solo se attiva nelle Preferenze del locale (lib/preferences.ts).
+// Sempre visibile; ogni parte si usa solo se attiva nelle Impostazioni del locale (lib/preferences.ts).
 export default function GestisciScreen() {
   const { locale: localeRecord } = useSession();
   const preferences = localePreferences(localeRecord);

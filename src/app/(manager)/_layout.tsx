@@ -1,10 +1,9 @@
-import { Redirect, router } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import type { ColorValue } from 'react-native';
 
-import { log } from '@/lib/log';
-import { updateSession, useSession } from '@/lib/session';
+import { useSession } from '@/lib/session';
 import { colors } from '@/theme';
 
 type IconName = SymbolViewProps['name'];
@@ -15,14 +14,8 @@ function tabIcon(name: IconName) {
   };
 }
 
-/** "Esci": chiude l'area manager e torna all'area dipendente. */
-function logout() {
-  log('Area manager: uscita');
-  updateSession({ manager: null });
-  router.dismissTo('/registro');
-}
-
-// Area manager (SPEC §8), con la sua tab bar come in Thunkable: Esci · Il tuo piano · Correggi Orari · Conteggio · Calendario.
+// Area manager (SPEC §8): Il tuo piano · Impostazioni · Correggi Orari · Conteggio · Calendario.
+// [develop 11/10/2026] "Esci" non è più una scheda: è un pulsante in alto in ogni scheda (components/ManagerExit).
 export default function ManagerLayout() {
   const { manager } = useSession();
   if (!manager) return <Redirect href="/registro" />;
@@ -36,18 +29,12 @@ export default function ManagerLayout() {
         tabBarInactiveTintColor: colors.muted,
       }}>
       <Tabs.Screen
-        name="esci"
-        options={{ title: 'Esci', tabBarIcon: tabIcon({ ios: 'xmark.circle.fill', android: 'logout' }) }}
-        listeners={{
-          tabPress: (event) => {
-            event.preventDefault();
-            logout();
-          },
-        }}
-      />
-      <Tabs.Screen
         name="piano"
         options={{ title: 'Il tuo piano', tabBarIcon: tabIcon({ ios: 'briefcase.fill', android: 'work' }) }}
+      />
+      <Tabs.Screen
+        name="impostazioni"
+        options={{ title: 'Impostazioni', tabBarIcon: tabIcon({ ios: 'gearshape.fill', android: 'settings' }) }}
       />
       <Tabs.Screen
         name="correggi"
@@ -61,8 +48,6 @@ export default function ManagerLayout() {
         name="calendario"
         options={{ title: 'Calendario', tabBarIcon: tabIcon({ ios: 'calendar', android: 'calendar_month' }) }}
       />
-      {/* Impostazioni dipendenti: non è nella tab bar, si apre da "Il tuo piano". */}
-      <Tabs.Screen name="impostazioni" options={{ href: null }} />
     </Tabs>
   );
 }
