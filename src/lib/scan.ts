@@ -66,6 +66,21 @@ export function hasEntryToday() {
 }
 
 /**
+ * Messaggio comprensibile per il dipendente ("Scan non riuscito: motivo. Riprova"). Il messaggio tecnico resta nel log
+ * e nel report per lo sviluppatore.
+ */
+export function friendlyScanMessage(message: string) {
+  if (message === SCAN_MESSAGES.ok || message === SCAN_MESSAGES.entryCancelled) return message;
+  if (message === SCAN_MESSAGES.connection) {
+    return 'Scan non riuscito: la connessione è assente o troppo lenta. Controlla la rete e riprova.';
+  }
+  if (message === SCAN_MESSAGES.notLinked) {
+    return 'Scan non riuscito: questo QR Code non è collegato alla tua azienda. Controlla di inquadrare il QR giusto e riprova.';
+  }
+  return 'Scan non riuscito: il registro online non ha accettato la timbratura. Riprova tra qualche minuto.';
+}
+
+/**
  * Esito di una timbratura per la riga rossa in Home: riuscita → si toglie l'avviso; non riuscita → si ricorda
  * (l'annullamento da parte del dipendente non è un errore).
  */

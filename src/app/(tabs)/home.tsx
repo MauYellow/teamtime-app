@@ -19,6 +19,7 @@ import { askReview, shouldAskReview } from '@/lib/review';
 import {
   canUseOtherLocale,
   entryMaxRows,
+  friendlyScanMessage,
   hasEntryToday,
   registerEntry,
   recordScanOutcome,
@@ -277,7 +278,7 @@ function ScanErrorNotice({ error, onDismiss }: { error: ScanError; onDismiss: ()
         <Text style={styles.alertText}>
           {error.type} non registrata{when}
         </Text>
-        <Text style={styles.noticeText}>{error.message}</Text>
+        <Text style={styles.noticeText}>{friendlyScanMessage(error.message)}</Text>
       </View>
       <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Chiudi avviso" hitSlop={12}>
         <SymbolView name={{ ios: 'xmark', android: 'close' }} tintColor={colors.muted} size={16} />

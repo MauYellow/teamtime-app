@@ -3,15 +3,11 @@ import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
-import { createRecord } from '@/lib/airtable';
-import { DEVICE } from '@/lib/device';
 import { confirmAlert } from '@/lib/dialogs';
 import { getLog, log } from '@/lib/log';
 import { backToHome } from '@/lib/navigation';
-import { getEmployeeName } from '@/lib/storage';
+import { sendReportToDeveloper } from '@/lib/report';
 import { colors, spacing } from '@/theme';
-
-type AssistenzaFields = { Name?: string; Notes?: string; Device?: string };
 
 // Log Error (SPEC §11): log della sessione, invio allo sviluppatore come riga della tabella Assistenza.
 export default function LogErrorScreen() {
@@ -25,12 +21,7 @@ export default function LogErrorScreen() {
     if (!confirmed) return;
     setSending(true);
     try {
-      await createRecord<AssistenzaFields>('Assistenza', {
-        Name: getEmployeeName() ?? 'Non registrato',
-        Notes: entries.join('\n'),
-        Device: DEVICE,
-      });
-      log('Report inviato allo sviluppatore');
+      await sendReportToDeveloper();
       Alert.alert('Report inviato', 'Grazie! Lo sviluppatore lo esaminerà al più presto.', [
         { text: 'OK', onPress: backToHome },
       ]);
