@@ -1,10 +1,10 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { SymbolView } from 'expo-symbols';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ManagerExit } from '@/components/ManagerExit';
-
 import { useTimePicker } from '@/components/TimePicker';
 import { formatTime } from '@/lib/activities';
 import { log } from '@/lib/log';
@@ -19,7 +19,8 @@ export default function CorreggiScreen() {
   const table = manager?.Locale ?? '';
   const [rows, setRows] = useState<Presenza[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [now, setNow] = useState(() => formatTime(new Date()));
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
+  const [failed, setFailed] = useState(false);
   const { pickTime, picker } = useTimePicker();
 
   const load = useCallback(async () => {
@@ -28,26 +29,22 @@ export default function CorreggiScreen() {
     setLoading(true);
     try {
       setRows(await fetchOpenPresenze(table));
+      setFetchedAt(new Date());
+      setFailed(false);
     } catch (error) {
       log(`Modifica Orari: errore ${String(error)}`);
-      Alert.alert('Errore!', 'Lista non caricata: controlla la connessione e trascina la lista in basso per riprovare.');
+      setFailed(true);
     } finally {
       setLoading(false);
     }
   }, [table]);
 
-  // [miglioria] la lista si carica da sola all'apertura e si aggiorna trascinandola in basso: niente bottone "Aggiorna".
+  // [miglioria] la lista si carica da sola all'apertura e dopo ogni modifica; si aggiorna anche con l'icona.
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load])
   );
-
-  // "Ora attuale" aggiornata ogni 30 secondi.
-  useEffect(() => {
-    const timer = setInterval(() => setNow(formatTime(new Date())), 30_000);
-    return () => clearInterval(timer);
-  }, []);
 
   const correct = async (row: Presenza) => {
     log(`Modifica Orario inizializzata per: ${row.id}`);
@@ -58,6 +55,8 @@ export default function CorreggiScreen() {
       log(`Modifica Orari: uscita ${formatTime(time)} per ${row.id}`);
       Alert.alert('Ben fatto!', 'Modifica effettuata con successo!');
       setRows((current) => current?.filter((item) => item.id !== row.id) ?? null);
+      // Dopo ogni modifica la lista si rilegge (1 chiamata): eventuali altre uscite registrate nel frattempo.
+      load();
     } catch (error) {
       log(`Modifica Orari: errore ${String(error)}`);
       Alert.alert('Errore!', `Contattare l'assistenza, Errore: ${String(error)}`);
@@ -82,8 +81,6 @@ export default function CorreggiScreen() {
         data={rows ?? []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        refreshing={loading && rows !== null}
-        onRefresh={load}
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator color={colors.primary} style={styles.loader} />
@@ -107,10 +104,27 @@ export default function CorreggiScreen() {
           </Pressable>
         )}
       />
-      <View style={styles.footer}>
-        <Text style={styles.now}>Ora attuale: {now}</Text>
-        <Text style={styles.refreshHint}>Trascina la lista verso il basso per aggiornarla</Text>
-      </View>
+      <Pressable
+        onPress={load}
+        disabled={loading}
+        accessibilityRole="button"
+        accessibilityLabel="Aggiorna"
+        hitSlop={12}
+        style={styles.refresh}>
+        {loading ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <SymbolView name={{ ios: 'arrow.clockwise', android: 'refresh' }} tintColor={colors.primary} size={18} />
+        )}
+        <Text style={styles.updated}>·</Text>
+        <Text style={styles.updated}>
+          {failed
+            ? 'Connessione assente: lista non aggiornata'
+            : fetchedAt
+              ? `Aggiornato il ${fetchedAt.getDate()}/${fetchedAt.getMonth() + 1} alle ${formatTime(fetchedAt)}`
+              : 'Caricamento…'}
+        </Text>
+      </Pressable>
       {picker}
     </SafeAreaView>
   );
@@ -144,7 +158,12 @@ const styles = StyleSheet.create({
   name: { fontSize: 16, fontWeight: '600', color: colors.text },
   date: { fontSize: 13, color: colors.muted, marginTop: 2 },
   time: { fontSize: 16, fontWeight: '600', color: colors.primary },
-  footer: { padding: spacing.md, gap: spacing.xs },
-  now: { textAlign: 'center', color: colors.text, fontWeight: '600' },
-  refreshHint: { textAlign: 'center', color: colors.muted, fontSize: 12 },
+  refresh: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  updated: { fontSize: 12, color: colors.muted },
 });
