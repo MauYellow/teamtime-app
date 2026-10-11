@@ -13,6 +13,16 @@ const NEW_QR_TABLE = 'New QR Code';
 /** Lista Brevo dei nuovi contatti (come l'app Thunkable). */
 const BREVO_LIST_ID = 2;
 
+/**
+ * Fasce di dipendenti, uguali ai 3 piani del sito (START, TEAMS, BUSINESS). [develop 11/10/2026] Al posto del numero
+ * esatto: in "New QR Code" (campo Password, come l'originale) e nel messaggio WhatsApp va il testo della fascia.
+ */
+export const EMPLOYEE_BANDS = [
+  { label: 'da 1 a 5', plan: 'START', maxEmployees: '5' },
+  { label: 'da 6 a 11', plan: 'TEAMS', maxEmployees: '11' },
+  { label: '12 o più', plan: 'BUSINESS', maxEmployees: '99999' },
+] as const;
+
 export type CompanyRequest = {
   locale: string;
   mail: string;

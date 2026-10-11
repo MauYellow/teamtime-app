@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -20,7 +21,7 @@ import { AppButton } from '@/components/AppButton';
 import { useTimePicker } from '@/components/TimePicker';
 import { formatTime } from '@/lib/activities';
 import { log } from '@/lib/log';
-import { submitRequest, validateRequest, whatsappUrl, type CompanyRequest } from '@/lib/registration';
+import { EMPLOYEE_BANDS, submitRequest, validateRequest, whatsappUrl, type CompanyRequest } from '@/lib/registration';
 import type { SentCompanyRequest } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 
@@ -49,6 +50,16 @@ export default function RegistraAziendaScreen() {
   const { pickDate, pickTime, picker } = useTimePicker();
 
   const update = (key: keyof CompanyRequest) => (value: string) => setRequest((current) => ({ ...current, [key]: value }));
+
+  const [employeesOpen, setEmployeesOpen] = useState(false);
+  const chooseEmployees = () => {
+    Keyboard.dismiss();
+    setEmployeesOpen((open) => !open);
+  };
+  const pickBand = (label: string) => {
+    update('employees')(label);
+    setEmployeesOpen(false);
+  };
 
   const goToCalendar = async () => {
     setError(null);
@@ -143,14 +154,37 @@ export default function RegistraAziendaScreen() {
                 autoComplete="tel"
               />
               <Text style={styles.small}>Ti contatteremo telefonicamente per l&apos;attivazione del QR Code</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Numero Dipendenti"
-                placeholderTextColor={colors.muted}
-                value={request.employees}
-                onChangeText={update('employees')}
-                keyboardType="number-pad"
-              />
+              {/* Menu a tendina con le 3 fasce dei piani, al posto del numero esatto. */}
+              <Pressable
+                onPress={chooseEmployees}
+                accessibilityRole="button"
+                accessibilityLabel="Numero di dipendenti"
+                style={[styles.input, styles.select]}>
+                <Text style={[styles.selectText, !request.employees && styles.selectPlaceholder]}>
+                  {request.employees ? `Dipendenti: ${request.employees}` : 'Numero di dipendenti'}
+                </Text>
+                <SymbolView
+                  name={employeesOpen ? { ios: 'chevron.up', android: 'expand_less' } : { ios: 'chevron.down', android: 'expand_more' }}
+                  tintColor={colors.muted}
+                  size={18}
+                />
+              </Pressable>
+              {employeesOpen && (
+                <View style={styles.options}>
+                  {EMPLOYEE_BANDS.map((band) => (
+                    <Pressable
+                      key={band.label}
+                      onPress={() => pickBand(band.label)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: request.employees === band.label }}
+                      style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}>
+                      <Text style={[styles.optionText, request.employees === band.label && styles.optionSelected]}>
+                        {band.label} dipendenti
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
               {error && <Text style={styles.error}>{error}</Text>}
               <AppButton title="Continua" onPress={goToCalendar} loading={loading} style={styles.button} />
             </>
@@ -239,6 +273,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
   },
+  select: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectText: { fontSize: 16, color: colors.text },
+  selectPlaceholder: { color: colors.muted },
+  options: { borderRadius: radius.input, backgroundColor: colors.surface, overflow: 'hidden' },
+  option: {
+    paddingVertical: spacing.sm + 4,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  optionPressed: { backgroundColor: colors.border },
+  optionText: { fontSize: 16, color: colors.text },
+  optionSelected: { color: colors.primary, fontWeight: '700' },
   error: { color: colors.error, fontWeight: '600', textAlign: 'center' },
   button: { marginTop: spacing.sm },
   choice: {
