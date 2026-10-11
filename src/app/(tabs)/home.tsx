@@ -189,13 +189,13 @@ export default function HomeScreen() {
     if (proceed) router.push('/log-error');
   };
 
-  /** Avviso rosso: rilegge Airtable (il manager potrebbe averli già chiusi) e apre Accesso Dipendenti. */
+  /** Avviso rosso: rilegge Airtable (il manager potrebbe averli già chiusi) e apre Gestisci per inserire le uscite. */
   const checkOpenShifts = async () => {
     if (!locale || !name) return;
     setBusy('Aggiornamento dei tuoi accessi..');
     await loadHistory(locale, name);
     setBusy(null);
-    router.navigate('/accesso');
+    router.navigate('/gestisci');
   };
 
   if (!name || !locale) {
@@ -304,7 +304,7 @@ function ShiftsCheck({ history, onPress }: { history: SavedHistory; onPress: () 
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityHint="Aggiorna i dati e apre Accessi"
+      accessibilityHint="Aggiorna i dati e apre Gestisci"
       style={({ pressed }) => [styles.hint, styles.hintAlert, pressed && styles.hintPressed]}>
       <SymbolView name={{ ios: 'xmark.circle.fill', android: 'cancel' }} tintColor={colors.error} size={22} />
       <View style={styles.flexShrink}>

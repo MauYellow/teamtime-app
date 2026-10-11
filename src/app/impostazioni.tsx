@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -87,12 +88,22 @@ export default function ImpostazioniScreen() {
             <SectionHeader title="Uscite dimenticate" />
             <SettingSwitch
               label="Il dipendente può inserire da solo le uscite dimenticate"
+              info={
+                'Se attiva, nella scheda Gestisci il dipendente può inserire l’orario di uscita dei turni in cui ha ' +
+                'dimenticato di timbrare. L’uscita vale subito, nel registro compare come "Inserita dal dipendente" e ' +
+                'il dipendente non può più modificarla. Se spenta, solo il manager può correggere i turni.'
+              }
               value={preferences.correzioneUscite}
               onChange={(value) => change({ correzioneUscite: value })}
               disabled={!canSave}
             />
             <Stepper
               label="Turni correggibili: ultimi giorni"
+              info={
+                'Numero massimo di giorni, dopo l’uscita dimenticata, entro cui il dipendente può correggersi da solo. ' +
+                'Esempio: con 7, un turno di lunedì si può correggere fino al lunedì successivo; dopo, solo il manager ' +
+                'può farlo.'
+              }
               value={preferences.giorniCorrezione}
               min={1}
               max={60}
@@ -101,6 +112,11 @@ export default function ImpostazioniScreen() {
             />
             <Stepper
               label="Durata massima di un turno (ore)"
+              info={
+                'Il turno più lungo che il dipendente può inserire da solo, dall’entrata all’uscita. Esempio: con 16, ' +
+                'per un’entrata alle 9:00 l’uscita può essere al massimo alle 1:00 della notte. Per turni più lunghi ' +
+                'deve intervenire il manager.'
+              }
               value={preferences.oreMaxTurno}
               min={1}
               max={24}
@@ -111,6 +127,10 @@ export default function ImpostazioniScreen() {
             <SectionHeader title="Ferie e permessi" style={styles.sectionSpacing} />
             <SettingSwitch
               label="Il dipendente può chiedere ferie e permessi (in arrivo)"
+              info={
+                'Se attiva, nella scheda Gestisci il dipendente potrà inviare richieste di ferie e permessi, che il ' +
+                'manager vedrà e gestirà. La funzione è in arrivo: per ora questa impostazione non ha effetto.'
+              }
               value={preferences.richieste}
               onChange={(value) => change({ richieste: value })}
               disabled={!canSave}
@@ -130,10 +150,32 @@ export default function ImpostazioniScreen() {
   );
 }
 
-function SettingSwitch(props: { label: string; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
+/** Testo dell'impostazione con l'icona "i" che apre la spiegazione (avviso di sistema). */
+function SettingLabel({ label, info, disabled }: { label: string; info: string; disabled?: boolean }) {
+  return (
+    <View style={styles.labelRow}>
+      <Text style={[styles.settingLabel, disabled && styles.disabledText]}>{label}</Text>
+      <Pressable
+        onPress={() => Alert.alert(label, info)}
+        accessibilityRole="button"
+        accessibilityLabel={`Informazioni su ${label}`}
+        hitSlop={10}>
+        <SymbolView name={{ ios: 'info.circle', android: 'info' }} tintColor={colors.primary} size={18} />
+      </Pressable>
+    </View>
+  );
+}
+
+function SettingSwitch(props: {
+  label: string;
+  info: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
     <View style={styles.setting}>
-      <Text style={[styles.settingLabel, props.disabled && styles.disabledText]}>{props.label}</Text>
+      <SettingLabel label={props.label} info={props.info} disabled={props.disabled} />
       <Switch
         value={props.value}
         onValueChange={props.onChange}
@@ -147,6 +189,7 @@ function SettingSwitch(props: { label: string; value: boolean; onChange: (value:
 
 function Stepper(props: {
   label: string;
+  info: string;
   value: number;
   min: number;
   max: number;
@@ -156,7 +199,7 @@ function Stepper(props: {
   const step = (delta: number) => props.onChange(Math.min(props.max, Math.max(props.min, props.value + delta)));
   return (
     <View style={styles.setting}>
-      <Text style={[styles.settingLabel, props.disabled && styles.disabledText]}>{props.label}</Text>
+      <SettingLabel label={props.label} info={props.info} disabled={props.disabled} />
       <View style={styles.stepper}>
         <Pressable
           onPress={() => step(-1)}
@@ -206,7 +249,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  settingLabel: { flex: 1, fontSize: 15, color: colors.text },
+  labelRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  settingLabel: { flexShrink: 1, fontSize: 15, color: colors.text },
   disabledText: { color: colors.muted },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   stepButton: {
