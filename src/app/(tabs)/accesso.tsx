@@ -1,4 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -7,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,7 +17,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
-import { BrandTitle } from '@/components/BrandTitle';
 import { BusyOverlay } from '@/components/BusyOverlay';
 import { LogoHeader } from '@/components/LogoHeader';
 import { PresenzaRow } from '@/components/PresenzaRow';
@@ -35,7 +34,6 @@ import {
 } from '@/lib/history';
 import { fetchLocaleNames } from '@/lib/locali';
 import { log } from '@/lib/log';
-import { canUseOtherLocale } from '@/lib/scan';
 import { updateSession } from '@/lib/session';
 import {
   getEmployeeLocale,
@@ -306,38 +304,54 @@ function AlreadyRegistered() {
   const current = currentMonth(saved?.records ?? []);
   const previous = pastMonths(locale, name, saved?.records ?? []);
   const monthName = new Date().toLocaleDateString('it-IT', { month: 'long' });
+  const fetchedAt = saved ? new Date(saved.fetchedAt) : null;
   const status = failed
     ? 'Connessione assente: dati non aggiornati'
     : loading && !saved
       ? 'Caricamento…'
-      : saved
-        ? `Aggiornato alle ${formatTime(new Date(saved.fetchedAt))}`
-        : '';
+      : fetchedAt
+        ? `Aggiornato il ${fetchedAt.getDate()}/${fetchedAt.getMonth() + 1} alle ${formatTime(fetchedAt)}`
+        : 'Non ancora aggiornato';
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.registered}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={() => load(true)} tintColor={colors.primary} />}>
+    <ScrollView contentContainerStyle={styles.registered}>
       <View style={styles.registeredHeader}>
-        <BrandTitle text="Accesso già effettuato." />
+        <Text style={styles.welcome}>Benvenuto/a {name?.trim().split(/\s+/)[0]}</Text>
         <Text style={styles.paragraph}>
           Per evitare l&apos;utilizzo di più utenti con lo stesso dispositivo non è possibile registrare un altro nome.
-          È un caso particolare o vorresti azzerare i tuoi dati?
+          Se necessario, contatta l&apos;assistenza per ricevere supporto.
         </Text>
       </View>
 
       <View style={styles.totalCard}>
-        <Text style={styles.totalLabel}>Ore lavorate a {monthName}</Text>
+        <Text style={styles.totalLabel}>
+          Ore lavorate a <Text style={styles.bold}>{monthName}</Text>
+        </Text>
         <Text style={styles.totalValue}>{saved ? formatEmployeeHours(current?.hours ?? 0) : '—'}</Text>
-        <Text style={styles.updated}>{status}</Text>
+        {/* Aggiornamento manuale: icona che ruota · data e ora dell'ultima lettura. */}
+        <Pressable
+          onPress={() => load(true)}
+          disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel="Aggiorna"
+          hitSlop={12}
+          style={({ pressed }) => [styles.refresh, pressed && styles.refreshPressed]}>
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <SymbolView name={{ ios: 'arrow.clockwise', android: 'refresh' }} tintColor={colors.primary} size={18} />
+          )}
+          <Text style={styles.updated}>·</Text>
+          <Text style={styles.updated}>{status}</Text>
+        </Pressable>
       </View>
 
-      <BrandTitle text="Ultimi accessi" size={20} />
+      <Text style={styles.sectionTitle}>Ultimi accessi</Text>
       {!saved ? (
         loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : (
-          <Text style={styles.empty}>Trascina verso il basso per caricare i tuoi accessi</Text>
+          <Text style={styles.empty}>Tocca l&apos;icona di aggiornamento per caricare i tuoi accessi</Text>
         )
       ) : current ? (
         current.records.map((record) => <PresenzaRow key={record.id} record={record} />)
@@ -348,7 +362,7 @@ function AlreadyRegistered() {
       {/* Mesi passati: solo il totale (salvato finché il mese era completo, vedi lib/history.ts). */}
       {previous.length > 0 && (
         <>
-          <BrandTitle text="Mesi precedenti" size={20} style={styles.sectionTitle} />
+          <Text style={[styles.sectionTitle, styles.sectionSpacing]}>Mesi precedenti</Text>
           {previous.map((month) => (
             <View key={month.key} style={styles.monthRow}>
               <Text style={styles.monthLabel}>{month.label}</Text>
@@ -362,10 +376,6 @@ function AlreadyRegistered() {
             responsabile.
           </Text>
         </>
-      )}
-
-      {canUseOtherLocale() && (
-        <Text style={styles.note}>Le presenze registrate con il QR Code di altre aziende non sono incluse.</Text>
       )}
 
       <Pressable onPress={removeData} accessibilityRole="button">
@@ -437,7 +447,12 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 14, color: colors.muted },
   totalValue: { fontSize: 34, fontWeight: '800', color: colors.primary },
   updated: { fontSize: 12, color: colors.muted },
-  sectionTitle: { marginTop: spacing.md },
+  refresh: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
+  refreshPressed: { opacity: 0.5 },
+  bold: { fontWeight: '700', color: colors.text },
+  welcome: { fontSize: 24, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  sectionSpacing: { marginTop: spacing.md },
+  sectionTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
   monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
