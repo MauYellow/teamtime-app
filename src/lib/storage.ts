@@ -142,6 +142,27 @@ export function clearSentCompanyRequest() {
   Storage.removeItemSync('richiestaAzienda');
 }
 
+/** Ultima timbratura non riuscita (riga rossa in Home finché non riesce la successiva o il dipendente la chiude). */
+export type ScanError = { type: 'Entrata' | 'Uscita'; message: string; /** ISO */ at: string };
+
+export function getLastScanError(): ScanError | null {
+  const json = read('ultimoErroreScan');
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as ScanError;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLastScanError(error: ScanError) {
+  Storage.setItemSync('ultimoErroreScan', JSON.stringify(error));
+}
+
+export function clearLastScanError() {
+  Storage.removeItemSync('ultimoErroreScan');
+}
+
 // Credenziali del Registro Online ("Ricorda dati"), nel portachiavi del telefono.
 
 export async function getManagerCredentials() {

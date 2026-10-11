@@ -21,10 +21,11 @@ import {
   entryMaxRows,
   hasEntryToday,
   registerEntry,
+  recordScanOutcome,
   registerExit,
   SCAN_MESSAGES,
 } from '@/lib/scan';
-import { getEmployeeLocale, getEmployeeName } from '@/lib/storage';
+import { clearLastScanError, getEmployeeLocale, getEmployeeName, getLastScanError, type ScanError } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 
 /** Righe di "Ultime Attività" in Home. */
@@ -41,8 +42,20 @@ export default function HomeScreen() {
   const [history, setHistory] = useState<SavedHistory | null>(() => getSavedHistory(getEmployeeLocale(), getEmployeeName()));
   const [historyFailed, setHistoryFailed] = useState(false);
   const loadingHistory = useRef(false);
+  const [scanError, setScanError] = useState<ScanError | null>(getLastScanError);
   const [busy, setBusy] = useState<string | null>(null);
   const { scan, scanner } = useQrScanner();
+
+  /** Fine timbratura: ricorda l'esito (riga rossa se non riuscita) e apre Scan Result. */
+  const finish = (type: ScanError['type'], message: string) => {
+    recordScanOutcome(type, message);
+    showScanResult(message);
+  };
+
+  const dismissScanError = () => {
+    clearLastScanError();
+    setScanError(null);
+  };
 
   /** Lettura completa da Airtable (1 chiamata): la prima volta, o toccando l'avviso dei turni non chiusi. */
   const loadHistory = useCallback(async (table: string, employee: string) => {
@@ -64,6 +77,7 @@ export default function HomeScreen() {
     const table = getEmployeeLocale();
     setName(employee);
     setLocale(table);
+    setScanError(getLastScanError());
     const saved = getSavedHistory(table, employee);
     setHistory(saved);
     // Solo se la copia non c'è ancora (nuovo dipendente o app appena aggiornata).
@@ -100,7 +114,7 @@ export default function HomeScreen() {
         });
         if (!proceed) {
           log('Seconda entrata del giorno annullata');
-          showScanResult(SCAN_MESSAGES.entryCancelled);
+          finish('Entrata', SCAN_MESSAGES.entryCancelled);
           return;
         }
         log('Confermata la seconda entrata del giorno');
@@ -109,7 +123,7 @@ export default function HomeScreen() {
       log(`Locale Scannato diverso dal Locale salvato: ${scanned}`);
       if (!canUseOtherLocale()) {
         log('Intercambio declinato');
-        showScanResult(SCAN_MESSAGES.notLinked);
+        finish('Entrata', SCAN_MESSAGES.notLinked);
         return;
       }
       log('Intercambio OK');
@@ -120,14 +134,14 @@ export default function HomeScreen() {
       const maxRows = await entryMaxRows(scanned, locale);
       if (maxRows === null) {
         log(`Intercambio: ${scanned} non è in Locali Approvati`);
-        showScanResult(SCAN_MESSAGES.notLinked);
+        finish('Entrata', SCAN_MESSAGES.notLinked);
         return;
       }
       const message = await registerEntry(scanned, maxRows, setBusy);
-      showScanResult(message);
+      finish('Entrata', message);
     } catch (error) {
       log(`Errore entrata: ${String(error)}`);
-      showScanResult(SCAN_MESSAGES.connection);
+      finish('Entrata', SCAN_MESSAGES.connection);
     } finally {
       setBusy(null);
     }
@@ -142,7 +156,7 @@ export default function HomeScreen() {
 
     if (scanned !== locale && !canUseOtherLocale()) {
       log('Intercambio declinato in uscita');
-      showScanResult(SCAN_MESSAGES.notLinked);
+      finish('Uscita', SCAN_MESSAGES.notLinked);
       return;
     }
 
@@ -159,7 +173,7 @@ export default function HomeScreen() {
         Alert.alert('Attenzione!', "Non risulta nessuna entrata a tuo nome da chiudere. Registra prima l'entrata.");
         return;
       }
-      showScanResult(result.message);
+      finish('Uscita', result.message);
     } finally {
       setBusy(null);
     }
@@ -213,6 +227,7 @@ export default function HomeScreen() {
           {/* Sempre attivo: alla scansione l'app controlla su Airtable se il dipendente è già uscito. */}
           <AppButton title="Registra Uscita" onPress={onExit} disabled={busy !== null} style={styles.flex} />
         </View>
+        {scanError && <ScanErrorNotice error={scanError} onDismiss={dismissScanError} />}
         <Text style={styles.sectionTitle}>Ultime Attività</Text>
         {history ? (
           history.records.length > 0 ? (
@@ -244,6 +259,30 @@ export default function HomeScreen() {
       <BusyOverlay text={busy} />
       {scanner}
     </SafeAreaView>
+  );
+}
+
+/** Ultima timbratura non riuscita, con il motivo: resta finché la successiva riesce o il dipendente la chiude. */
+function ScanErrorNotice({ error, onDismiss }: { error: ScanError; onDismiss: () => void }) {
+  const at = new Date(error.at);
+  const when = Number.isNaN(at.getTime()) ? '' : ` il ${at.getDate()}/${at.getMonth() + 1} alle ${formatTime(at)}`;
+  return (
+    <View style={[styles.notice, styles.hintAlert]} accessibilityRole="alert">
+      <SymbolView
+        name={{ ios: 'exclamationmark.triangle.fill', android: 'warning' }}
+        tintColor={colors.error}
+        size={22}
+      />
+      <View style={styles.flexShrink}>
+        <Text style={styles.alertText}>
+          {error.type} non registrata{when}
+        </Text>
+        <Text style={styles.noticeText}>{error.message}</Text>
+      </View>
+      <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Chiudi avviso" hitSlop={12}>
+        <SymbolView name={{ ios: 'xmark', android: 'close' }} tintColor={colors.muted} size={16} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -308,6 +347,8 @@ const styles = StyleSheet.create({
   },
   hintPressed: { opacity: 0.6 },
   hintAlert: { backgroundColor: '#FDECEE' },
+  notice: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm + 2, borderRadius: radius.card },
+  noticeText: { fontSize: 13, color: colors.text },
   hintText: { flexShrink: 1, color: colors.muted, fontSize: 14, textAlign: 'center' },
   hintStrong: { color: colors.primary, fontWeight: '700' },
   alertText: { color: colors.error, fontWeight: '600' },

@@ -15,7 +15,15 @@ import { getCurrentAddress } from '@/lib/location';
 import { log } from '@/lib/log';
 import { countScanForReview } from '@/lib/review';
 import { getSession } from '@/lib/session';
-import { getEmployeeLocale, getEmployeeName, getOldestId, setOldestId } from '@/lib/storage';
+import {
+  clearLastScanError,
+  getEmployeeLocale,
+  getEmployeeName,
+  getOldestId,
+  saveLastScanError,
+  setOldestId,
+  type ScanError,
+} from '@/lib/storage';
 import { scanTelegramText, sendTelegram } from '@/lib/telegram';
 
 // Timbrature di entrata e uscita (SPEC §4.1 e §4.2), come i blocchi "ScriviOrario" e "Scrivi Uscita" di Thunkable.
@@ -55,6 +63,18 @@ function maxRowsOf(locale: LocaleFields | null) {
 /** True se nella copia di Airtable c'è già una presenza di oggi (lib/history.ts: unica fonte, niente dati del telefono). */
 export function hasEntryToday() {
   return historyHasEntryToday(getEmployeeLocale(), getEmployeeName());
+}
+
+/**
+ * Esito di una timbratura per la riga rossa in Home: riuscita → si toglie l'avviso; non riuscita → si ricorda
+ * (l'annullamento da parte del dipendente non è un errore).
+ */
+export function recordScanOutcome(type: ScanError['type'], message: string) {
+  if (message === SCAN_MESSAGES.ok) {
+    clearLastScanError();
+  } else if (message !== SCAN_MESSAGES.entryCancelled) {
+    saveLastScanError({ type, message, at: new Date().toISOString() });
+  }
 }
 
 /** Intercambio: il dipendente può timbrare sul QR di un altro locale solo se il SUO locale ha Intercambio = yes. */
