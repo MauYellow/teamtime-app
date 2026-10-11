@@ -16,6 +16,7 @@ import {
   recordsOfMonth,
   sendTotalsMail,
   shareExcelReport,
+  emailExcelReport,
   type Month,
 } from '@/lib/manager';
 import { loadManagerData, useManagerData } from '@/lib/managerData';
@@ -63,7 +64,7 @@ export default function ConteggioScreen() {
       return;
     }
     if (!(await confirmIfAtWork())) return;
-    if (!(await confirmAlert('Invia Mail', `Inviare il riepilogo di ${month.label} a ${manager.Mail}?`, { confirm: 'Invia' })))
+    if (!(await confirmAlert('Mail Conteggio Veloce', `Inviare il riepilogo di ${month.label} a ${manager.Mail}?`, { confirm: 'Invia' })))
       return;
     setBusy('mail');
     try {
@@ -78,13 +79,43 @@ export default function ConteggioScreen() {
     }
   };
 
+  /** "Ricevi Report Excel Completo": scelta tra mail e telefono. */
+  const chooseExcelDestination = () =>
+    new Promise<'mail' | 'phone' | null>((resolve) =>
+      Alert.alert(
+        'Report Excel completo',
+        'Come vuoi ricevere il report?',
+        [
+          { text: 'Invia alla mail', onPress: () => resolve('mail') },
+          { text: 'Scarica sul telefono', onPress: () => resolve('phone') },
+          { text: 'Annulla', style: 'cancel', onPress: () => resolve(null) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(null) }
+      )
+    );
+
   const excel = async () => {
     if (!month) return;
     if (!(await confirmIfAtWork())) return;
+    const destination = await chooseExcelDestination();
+    if (!destination) return;
     setBusy('excel');
     try {
-      await shareExcelReport(table, month, totals);
-      log(`Conteggio: report Excel ${month.key}`);
+      if (destination === 'mail') {
+        const opened = manager?.Mail ? await emailExcelReport(table, month, totals, manager.Mail) : false;
+        if (!opened) {
+          // Nessun account Mail sul telefono (o mail del locale mancante): si usa il pannello di condivisione.
+          setBusy(null);
+          Alert.alert(
+            'App Mail non disponibile',
+            'Sul telefono non risulta un account Mail configurato: scegli tu dove inviarlo (Gmail, Outlook, WhatsApp...).'
+          );
+          await shareExcelReport(table, month, totals);
+        }
+      } else {
+        await shareExcelReport(table, month, totals);
+      }
+      log(`Conteggio: report Excel ${month.key} (${destination})`);
     } catch (error) {
       log(`Conteggio: errore report ${String(error)}`);
       Alert.alert('Errore', 'Report non creato. Riprova o contatta l’assistenza.');
@@ -170,14 +201,14 @@ export default function ConteggioScreen() {
             style={styles.button}
           />
           <AppButton
-            title="Invia Mail"
+            title="Ricevi Mail Conteggio Veloce"
             onPress={sendMail}
             disabled={!month || busy !== null}
             loading={busy === 'mail'}
             style={styles.button}
           />
           <AppButton
-            title="Report Excel"
+            title="Ricevi Report Excel Completo"
             onPress={excel}
             disabled={!month || busy !== null}
             loading={busy === 'excel'}

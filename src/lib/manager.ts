@@ -1,4 +1,5 @@
 import { File, Paths } from 'expo-file-system';
+import * as MailComposer from 'expo-mail-composer';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
 
@@ -183,7 +184,8 @@ export function sendTotalsMail(locale: LocaleFields, month: Month, totals: Emplo
  * Report Excel nello stesso formato del portale: Nome Cognome, giorni 01–31, Totale (formula), Mese, Anno.
  * [miglioria] il file si crea nell'app e si condivide (l'originale compilava un Google Sheet).
  */
-export async function shareExcelReport(locale: string, month: Month, totals: EmployeeTotal[]) {
+/** Crea il file .xlsx del report nella cache del telefono e ne restituisce l'indirizzo. */
+function createExcelReport(locale: string, month: Month, totals: EmployeeTotal[]) {
   const days = Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, '0'));
   const header = ['Nome Cognome', ...days, 'Totale', 'Mese', 'Anno'];
   const rows: (string | number | XLSX.CellObject)[][] = totals.map((item, index) => [
@@ -208,11 +210,31 @@ export async function shareExcelReport(locale: string, month: Month, totals: Emp
   const file = new File(Paths.cache, `${locale}_${month.month}_${month.year}_report.xlsx`);
   if (file.exists) file.delete();
   file.write(bytes);
-  await Sharing.shareAsync(file.uri, {
+  return file.uri;
+}
+
+/** "Scarica sul telefono": pannello di condivisione (Salva su File, Drive, WhatsApp...). */
+export async function shareExcelReport(locale: string, month: Month, totals: EmployeeTotal[]) {
+  await Sharing.shareAsync(createExcelReport(locale, month, totals), {
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     UTI: 'org.openxmlformats.spreadsheetml.sheet',
     dialogTitle: `Report ${month.label}`,
   });
+}
+
+/**
+ * "Invia alla mail": apre l'app Mail del telefono con il report allegato e la mail del locale già come destinatario
+ * (il manager preme Invia). False se sul telefono non c'è un account Mail configurato.
+ */
+export async function emailExcelReport(locale: string, month: Month, totals: EmployeeTotal[], mail: string) {
+  if (!(await MailComposer.isAvailableAsync())) return false;
+  await MailComposer.composeAsync({
+    recipients: [mail],
+    subject: `Report presenze ${month.label} - ${locale}`,
+    body: `In allegato il report completo delle presenze di ${month.label}.\n\nTeamTime App - Registro Presenze`,
+    attachments: [createExcelReport(locale, month, totals)],
+  });
+  return true;
 }
 
 /** URL del calendario incorporabile, come nel portale ("airtable.com/embed/…?viewControls=on"). */
