@@ -121,17 +121,18 @@ export default function RegistroScreen() {
           </View>
           {error && <Text style={styles.error}>{error}</Text>}
           <AppButton title="Accedi" onPress={login} loading={loading} style={styles.button} />
-          <Text style={styles.small}>Accedendo dichiari di aver letto e compreso:</Text>
-          <Pressable onPress={() => router.push('/informativa-cookie')} accessibilityRole="link">
-            <Text style={styles.link}>
-              l&apos;informativa di privacy e l&apos;utilizzo di cookies da parte di servizi esterni
+          <Text style={styles.small}>
+            Accettando dichiaro di aver letto e compreso l&apos;
+            <Text style={styles.inlineLink} onPress={() => router.push('/informativa-cookie')} accessibilityRole="link">
+              informativa sulla privacy
             </Text>
-          </Pressable>
-          <Pressable onPress={() => Linking.openURL(DATA_REMOVAL_FORM_URL)} accessibilityRole="link">
-            <Text style={[styles.link, styles.removal]}>Vuoi far rimuovere i tuoi dati aziendali? Contattaci</Text>
-          </Pressable>
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
+      {/* In basso, appena sopra il menu. */}
+      <Pressable onPress={() => Linking.openURL(DATA_REMOVAL_FORM_URL)} accessibilityRole="link" style={styles.footer}>
+        <Text style={styles.removal}>Richiedi rimozione dei tuoi dati aziendali</Text>
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -158,7 +159,9 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     paddingVertical: spacing.xs,
   },
-  removal: { marginTop: spacing.md },
+  inlineLink: { color: colors.primary, textDecorationLine: 'underline' },
+  footer: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
+  removal: { textAlign: 'center', color: colors.muted, fontSize: 13, textDecorationLine: 'underline' },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',

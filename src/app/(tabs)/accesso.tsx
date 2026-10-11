@@ -336,7 +336,16 @@ function AlreadyRegistered() {
         <Text style={styles.totalLabel}>
           Ore lavorate a <Text style={styles.bold}>{monthName}</Text>
         </Text>
-        <Text style={styles.totalValue}>{saved ? formatEmployeeHours(current?.hours ?? 0) : '—'}</Text>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalValue}>{saved ? formatEmployeeHours(current?.hours ?? 0) : '—'}</Text>
+          <Pressable
+            onPress={() => Alert.alert(`Ore lavorate a ${monthName}`, HOURS_INFO)}
+            accessibilityRole="button"
+            accessibilityLabel="Informazioni sulle ore"
+            hitSlop={12}>
+            <SymbolView name={{ ios: 'info.circle', android: 'info' }} tintColor={colors.primary} size={20} />
+          </Pressable>
+        </View>
         {/* Aggiornamento manuale: icona che ruota · data e ora dell'ultima lettura. */}
         <Pressable
           onPress={() => load(true)}
@@ -450,6 +459,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   totalLabel: { fontSize: 14, color: colors.muted },
+  totalRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   totalValue: { fontSize: 34, fontWeight: '800', color: colors.primary },
   updated: { fontSize: 12, color: colors.muted },
   refresh: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
