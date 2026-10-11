@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
@@ -132,11 +132,6 @@ export default function ImpostazioniScreen() {
               disabled={!canSave}
             />
 
-            <Text style={styles.jsonLabel}>Come verrà salvato nella colonna Impostazioni:</Text>
-            <Text style={styles.json} selectable>
-              {JSON.stringify(preferences, null, 2)}
-            </Text>
-
             {canSave && <AppButton title="Salva" onPress={save} loading={saving} style={styles.save} />}
           </>
         )}
@@ -259,14 +254,5 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.6 },
   stepText: { fontSize: 20, fontWeight: '700', color: colors.primary },
   stepValue: { minWidth: 28, textAlign: 'center', fontSize: 17, fontWeight: '700', color: colors.text },
-  jsonLabel: { fontSize: 13, color: colors.muted, marginTop: spacing.md },
-  json: {
-    fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
-    fontSize: 13,
-    color: colors.text,
-    backgroundColor: colors.surface,
-    borderRadius: radius.input,
-    padding: spacing.sm,
-  },
   save: { marginTop: spacing.md },
 });

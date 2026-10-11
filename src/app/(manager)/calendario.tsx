@@ -185,14 +185,10 @@ export default function CalendarioScreen() {
         </View>
 
         <View style={styles.legend}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>3</Text>
-          </View>
-          <Text style={styles.legendText}>presenze</Text>
-          <View style={[styles.badge, styles.badgeOpen]}>
-            <Text style={styles.badgeText}>1</Text>
-          </View>
-          <Text style={styles.legendText}>con turni non chiusi</Text>
+          <View style={styles.dot} />
+          <Text style={styles.legendText}>Turni corretti</Text>
+          <View style={[styles.dot, styles.badgeOpen]} />
+          <Text style={styles.legendText}>Turni non chiusi</Text>
         </View>
 
         <Pressable
@@ -294,6 +290,7 @@ const styles = StyleSheet.create({
   },
   badgeOpen: { backgroundColor: colors.error },
   badgeEmpty: { height: 18 },
+  dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.success },
   badgeText: { color: colors.white, fontSize: 11, fontWeight: '700' },
   legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
   legendText: { fontSize: 12, color: colors.muted, marginRight: spacing.sm },
