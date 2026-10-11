@@ -27,7 +27,7 @@ export function useTimePicker() {
           value: initial,
           mode: options.mode,
           is24Hour: true,
-          title: options.title,
+          // Niente "title": su Android funziona solo con il selettore "material" e altrimenti dà un avviso.
           minimumDate: options.minimumDate,
           onValueChange: (_, date) => resolve(date),
           onDismiss: () => resolve(null),
