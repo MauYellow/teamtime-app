@@ -1,6 +1,5 @@
-import { useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,8 +7,8 @@ import { ManagerExit } from '@/components/ManagerExit';
 
 import { formatTime } from '@/lib/activities';
 import { formatEmployeeHours, localDay, today } from '@/lib/history';
-import { log } from '@/lib/log';
-import { fetchMonthPresenze, hoursOf, isAtWork, type Presenza } from '@/lib/manager';
+import { hoursOf, isAtWork, type Presenza } from '@/lib/manager';
+import { loadManagerData, useManagerData } from '@/lib/managerData';
 import { useSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -38,58 +37,16 @@ function entryMinutes(record: Presenza) {
 
 // Calendario (SPEC §8) [miglioria 11/10/2026]: calendario mensile nell'app al posto della vista web di Airtable.
 // Pallino con il numero di presenze per giorno (rosso se c'è un turno non chiuso di un giorno passato); tocco sul giorno
-// → elenco dei dipendenti. Si legge solo il mese visualizzato (1 chiamata ogni 100 presenze del mese) e lo si
-// ricorda finché l'app resta aperta: tornando su un mese già visto non si rilegge (aggiornamento con l'icona).
-/** Mesi già letti in questa apertura dell'app: chiave "locale:AAAA-MM". */
-const monthCache = new Map<string, { records: Presenza[]; fetchedAt: Date }>();
-
+// → elenco dei dipendenti. Le presenze sono quelle lette all'ingresso nell'area manager (lib/managerData.ts), le
+// stesse del Conteggio: cambiare mese non costa chiamate; l'icona rilegge tutto.
 export default function CalendarioScreen() {
   const { manager } = useSession();
   const table = manager?.Locale ?? '';
   const now = new Date();
   const [month, setMonth] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const [selected, setSelected] = useState(today());
-  const [records, setRecords] = useState<Presenza[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
-  const cacheKey = `${table}:${dayKey(month.year, month.month, 1).slice(0, 7)}`;
-
-  /** Mese visualizzato: dalla memoria se già letto, altrimenti da Airtable (force = icona di aggiornamento). */
-  const load = useCallback(
-    async (force: boolean) => {
-      if (!table) return;
-      const cached = monthCache.get(cacheKey);
-      if (cached && !force) {
-        setRecords(cached.records);
-        setFetchedAt(cached.fetchedAt);
-        setFailed(false);
-        return;
-      }
-      setLoading(true);
-      if (!cached) setRecords(null);
-      try {
-        const list = await fetchMonthPresenze(table, month.year, month.month);
-        const entry = { records: list, fetchedAt: new Date() };
-        monthCache.set(cacheKey, entry);
-        setRecords(entry.records);
-        setFetchedAt(entry.fetchedAt);
-        setFailed(false);
-      } catch (error) {
-        log(`Calendario: errore caricamento ${String(error)}`);
-        setFailed(true);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [table, cacheKey, month.year, month.month]
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      load(false);
-    }, [load])
-  );
+  const { records, loading, failed, fetchedAt } = useManagerData();
+  const load = () => loadManagerData(table, true);
 
   /** Presenze raggruppate per giorno. */
   const byDay = useMemo(() => {
@@ -116,8 +73,11 @@ export default function CalendarioScreen() {
 
   const monthLabel = capitalize(first.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }));
   // Mese passato senza nessuna presenza: probabilmente già cancellato dal limite di righe del registro.
+  const monthPrefix = dayKey(month.year, month.month, 1).slice(0, 8);
   const emptyPastMonth =
-    records !== null && records.length === 0 && dayKey(month.year, month.month, daysInMonth) < todayKey;
+    records !== null &&
+    ![...byDay.keys()].some((key) => key.startsWith(monthPrefix)) &&
+    dayKey(month.year, month.month, daysInMonth) < todayKey;
 
   /** Cambio mese: si seleziona oggi se è in quel mese, altrimenti il primo giorno. */
   const changeMonth = (delta: number) => {
@@ -192,7 +152,7 @@ export default function CalendarioScreen() {
         </View>
 
         <Pressable
-          onPress={() => load(true)}
+          onPress={load}
           disabled={loading}
           accessibilityRole="button"
           accessibilityLabel="Aggiorna"

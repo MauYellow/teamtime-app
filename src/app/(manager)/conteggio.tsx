@@ -1,51 +1,36 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ManagerExit } from '@/components/ManagerExit';
-
 import { AppButton } from '@/components/AppButton';
+import { ManagerExit } from '@/components/ManagerExit';
+import { formatTime } from '@/lib/activities';
 import { confirmAlert } from '@/lib/dialogs';
 import { log } from '@/lib/log';
 import {
   availableMonths,
   employeeTotals,
-  fetchAllPresenze,
   formatHours,
   recordsOfMonth,
   sendTotalsMail,
   shareExcelReport,
   type Month,
-  type Presenza,
 } from '@/lib/manager';
+import { loadManagerData, useManagerData } from '@/lib/managerData';
 import { useSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
-// Conteggio (SPEC §8): scelta del mese, poi Conteggio Veloce, Invia Mail, Report Excel.
+// Conteggio (SPEC §8): scelta del mese, poi Conteggio Veloce, Invia Mail, Report Excel. Le presenze sono quelle
+// lette all'ingresso nell'area manager (lib/managerData.ts), le stesse del Calendario.
 export default function ConteggioScreen() {
   const { manager } = useSession();
   const table = manager?.Locale ?? '';
-  const [records, setRecords] = useState<Presenza[] | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const { records, failed, loading, fetchedAt } = useManagerData();
   const [month, setMonth] = useState<Month | null>(null);
   const [showTotals, setShowTotals] = useState(false);
   const [busy, setBusy] = useState<'mail' | 'excel' | null>(null);
-
-  // Tutte le righe del locale (al massimo Max Rows): si leggono una volta all'apertura.
-  useEffect(() => {
-    if (!table) return;
-    let cancelled = false;
-    fetchAllPresenze(table)
-      .then((list) => !cancelled && setRecords(list))
-      .catch((error) => {
-        log(`Conteggio: errore caricamento ${String(error)}`);
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [table, attempt]);
 
   const months = useMemo(() => (records ? availableMonths(records) : []), [records]);
   const monthRecords = useMemo(() => (records && month ? recordsOfMonth(records, month) : []), [records, month]);
@@ -58,10 +43,7 @@ export default function ConteggioScreen() {
     setShowTotals(false);
   };
 
-  const retry = () => {
-    setFailed(false);
-    setAttempt((value) => value + 1);
-  };
+  const retry = () => loadManagerData(table, true);
 
   /** Come il portale: se qualcuno risulta ancora al lavoro, le sue ore di quel giorno non sono conteggiate. */
   const confirmIfAtWork = useCallback(async () => {
@@ -121,7 +103,7 @@ export default function ConteggioScreen() {
             <Text style={styles.muted}>Presenze non caricate: controlla la connessione.</Text>
             <AppButton title="Riprova" variant="outline" onPress={retry} />
           </View>
-        ) : records === null ? (
+        ) : records === null || (loading && !records) ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : months.length === 0 ? (
           <Text style={styles.muted}>Nessuna presenza registrata.</Text>
@@ -140,8 +122,45 @@ export default function ConteggioScreen() {
           </View>
         )}
 
+        <Pressable
+          onPress={retry}
+          disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel="Aggiorna"
+          hitSlop={12}
+          style={styles.refresh}>
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <SymbolView name={{ ios: 'arrow.clockwise', android: 'refresh' }} tintColor={colors.primary} size={18} />
+          )}
+          <Text style={styles.updated}>·</Text>
+          <Text style={styles.updated}>{fetchedAt ? `Aggiornato alle ${formatTime(fetchedAt)}` : 'Caricamento…'}</Text>
+        </Pressable>
+
         <Text style={styles.chosenLabel}>Mese scelto:</Text>
         <Text style={styles.chosen}>{month ? month.label : 'Ancora nessun mese selezionato'}</Text>
+
+        {month && atWork > 0 && (
+          <Pressable
+            onPress={() => router.navigate('/correggi')}
+            accessibilityRole="button"
+            accessibilityHint="Apre Correggi Orari"
+            style={({ pressed }) => [styles.warning, pressed && styles.pressed]}>
+            <SymbolView
+              name={{ ios: 'exclamationmark.triangle.fill', android: 'warning' }}
+              tintColor={colors.error}
+              size={22}
+            />
+            <Text style={styles.warningText}>
+              {atWork === 1
+                ? 'In questo mese 1 turno risulta ancora "al lavoro": le sue ore non sono conteggiate. '
+                : `In questo mese ${atWork} turni risultano ancora "al lavoro": le loro ore non sono conteggiate. `}
+              Inserisci l&apos;uscita da{' '}
+              <Text style={styles.warningLink}>Correggi Orari</Text>.
+            </Text>
+          </Pressable>
+        )}
 
         <View style={styles.buttons}>
           <AppButton
@@ -218,6 +237,20 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   grandTotal: { borderBottomWidth: 0 },
+  refresh: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
+  updated: { fontSize: 12, color: colors.muted },
+  warning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.sm + 2,
+    borderRadius: radius.card,
+    backgroundColor: '#FDECEE',
+    marginTop: spacing.sm,
+  },
+  pressed: { opacity: 0.6 },
+  warningText: { flex: 1, fontSize: 14, color: colors.text },
+  warningLink: { color: colors.primary, fontWeight: '700', textDecorationLine: 'underline' },
   totalName: { fontSize: 15, color: colors.text, flex: 1 },
   totalHours: { fontSize: 15, fontWeight: '700', color: colors.text },
   note: { fontSize: 12, color: colors.muted, marginTop: spacing.xs },

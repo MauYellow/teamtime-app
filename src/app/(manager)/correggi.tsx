@@ -9,6 +9,7 @@ import { useTimePicker } from '@/components/TimePicker';
 import { formatTime } from '@/lib/activities';
 import { log } from '@/lib/log';
 import { fetchOpenPresenze, presenzaDate, setExitTime, type Presenza } from '@/lib/manager';
+import { updateManagerRecord } from '@/lib/managerData';
 import { useSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -53,7 +54,7 @@ export default function CorreggiScreen() {
     const time = await pickTime(`Uscita di ${row.fields.Nome ?? 'dipendente'}`);
     if (!time) return;
     try {
-      await setExitTime(table, row.id, time);
+      updateManagerRecord(await setExitTime(table, row.id, time));
       log(`Modifica Orari: uscita ${formatTime(time)} per ${row.id}`);
       Alert.alert('Ben fatto!', 'Modifica effettuata con successo!');
       setRows((current) => current?.filter((item) => item.id !== row.id) ?? null);

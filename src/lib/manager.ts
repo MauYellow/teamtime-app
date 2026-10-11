@@ -111,18 +111,6 @@ export function fetchAllPresenze(table: string) {
   return listRecords<PresenzaFields>(table, { sort: [{ field: 'Created', direction: 'desc' }] });
 }
 
-/**
- * Presenze di un solo mese (Calendario): filtro su "Mese Nome" e "Anno", come il raggruppamento del Conteggio.
- * Airtable restituisce al massimo 100 righe per chiamata: 1 chiamata fino a 100 presenze nel mese, 2 fino a 200...
- */
-export function fetchMonthPresenze(table: string, year: number, monthIndex: number) {
-  return listRecords<PresenzaFields>(table, {
-    filterByFormula: `AND(LOWER({Mese Nome}) = "${MONTHS[monthIndex]}", {Anno} & "" = "${year}")`,
-    sort: [{ field: 'ID', direction: 'asc' }],
-    fields: ['Nome', 'Entrata', 'Uscita', 'Created', 'Mese Nome', 'Anno', 'Giorno Corretto', 'Ore Lavorate', 'ID'],
-  });
-}
-
 function monthOf(record: Presenza): Month | null {
   const month = record.fields['Mese Nome']?.trim().toLowerCase();
   const year = String(record.fields.Anno ?? '').trim();

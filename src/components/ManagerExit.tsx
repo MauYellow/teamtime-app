@@ -3,6 +3,7 @@ import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { log } from '@/lib/log';
+import { clearManagerData } from '@/lib/managerData';
 import { updateSession } from '@/lib/session';
 import { colors, spacing } from '@/theme';
 
@@ -10,6 +11,7 @@ import { colors, spacing } from '@/theme';
 export function managerLogout() {
   log('Area manager: uscita');
   updateSession({ manager: null });
+  clearManagerData();
   router.dismissTo('/registro');
 }
 

@@ -1,8 +1,10 @@
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { useEffect } from 'react';
 import type { ColorValue } from 'react-native';
 
+import { loadManagerData } from '@/lib/managerData';
 import { useSession } from '@/lib/session';
 import { colors } from '@/theme';
 
@@ -18,6 +20,13 @@ function tabIcon(name: IconName) {
 // [develop 11/10/2026] "Esci" non è più una scheda: è un pulsante in alto in ogni scheda (components/ManagerExit).
 export default function ManagerLayout() {
   const { manager } = useSession();
+  const table = manager?.Locale;
+
+  // All'ingresso: tutte le presenze del locale in memoria, per Calendario e Conteggio (lib/managerData.ts).
+  useEffect(() => {
+    if (table) loadManagerData(table);
+  }, [table]);
+
   if (!manager) return <Redirect href="/registro" />;
 
   return (
