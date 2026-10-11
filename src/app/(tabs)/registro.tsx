@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   inlineLink: { color: colors.primary, textDecorationLine: 'underline' },
   footer: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
-  removal: { textAlign: 'center', color: colors.muted, fontSize: 13, textDecorationLine: 'underline' },
+  removal: { textAlign: 'center', color: colors.primary, fontSize: 13, textDecorationLine: 'underline' },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',

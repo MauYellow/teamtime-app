@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BrandTitle } from '@/components/BrandTitle';
 import { useTimePicker } from '@/components/TimePicker';
 import { formatTime } from '@/lib/activities';
 import { log } from '@/lib/log';
@@ -65,7 +64,7 @@ export default function CorreggiScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <BrandTitle text="Correzione Orari Dipendenti" size={20} />
+        <Text style={styles.title}>Correzione Orari Dipendenti</Text>
         <Text style={styles.hint}>
           Questi dipendenti risultano ancora al lavoro, clicca sulla linea per impostare manualmente l&apos;orario di
           Uscita
@@ -118,6 +117,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: { padding: spacing.md, gap: spacing.xs },
   hint: { textAlign: 'center', color: colors.muted, fontSize: 14 },
+  title: { fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center' },
   tableHeader: {
     flexDirection: 'row',
     paddingHorizontal: spacing.md,

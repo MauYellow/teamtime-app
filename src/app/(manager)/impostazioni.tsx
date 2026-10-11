@@ -6,26 +6,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { SectionHeader } from '@/components/SectionHeader';
-import { PREFERENCES_TEST_LOCALES } from '@/config';
 import { findFirst, formulaString, updateRecord, type AirtableRecord } from '@/lib/airtable';
 import { writeCache } from '@/lib/cache';
 import { LOCALI_TABLE, localeCacheKey, type LocaleFields } from '@/lib/locali';
 import { log } from '@/lib/log';
 import { localePreferences, type LocalePreferences } from '@/lib/preferences';
-import { updateSession } from '@/lib/session';
-import { getEmployeeLocale } from '@/lib/storage';
+import { getSession, updateSession, useSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
-// Impostazioni del locale (PROVVISORIO, da Supporto): rappresentano il JSON della colonna "Preferenze" di Locali
-// Approvati. Salvataggio solo per i locali di prova (PREFERENCES_TEST_LOCALES). Poi la schermata passerà nell'area
-// manager del Registro Online.
+// Area manager → Impostazioni (SPEC §16): rappresentano il JSON della colonna "Preferenze" di Locali Approvati del
+// locale del manager (dopo il login del Registro Online). Si apre da "Il tuo piano".
 export default function ImpostazioniScreen() {
-  const locale = getEmployeeLocale();
+  const { manager } = useSession();
+  const locale = manager?.Locale ?? null;
   const [record, setRecord] = useState<AirtableRecord<LocaleFields> | null>(null);
   const [preferences, setPreferences] = useState<LocalePreferences | null>(null);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
-  const canSave = !!locale && PREFERENCES_TEST_LOCALES.includes(locale);
+  const canSave = !!locale;
 
   useEffect(() => {
     if (!locale) return;
@@ -55,11 +53,12 @@ export default function ImpostazioniScreen() {
       const updated = await updateRecord<LocaleFields>(LOCALI_TABLE, record.id, {
         Preferenze: JSON.stringify(preferences),
       });
-      // Le altre schermate leggono il locale dalla sessione: si aggiorna subito, senza riaprire l'app.
-      updateSession({ locale: updated.fields });
+      // Sessione aggiornata subito: area manager e, se è anche il locale del dipendente su questo telefono, Gestisci.
+      const sameAsEmployee = getSession().locale?.Locale === locale;
+      updateSession(sameAsEmployee ? { manager: updated.fields, locale: updated.fields } : { manager: updated.fields });
       writeCache(localeCacheKey(locale ?? ''), updated.fields);
       log(`Impostazioni salvate per ${locale}: ${JSON.stringify(preferences)}`);
-      Alert.alert('Salvato', 'Le impostazioni sono state aggiornate.', [{ text: 'OK', onPress: () => router.back() }]);
+      Alert.alert('Salvato', 'Le impostazioni sono state aggiornate.', [{ text: 'OK', onPress: () => router.navigate('/piano') }]);
     } catch (error) {
       log(`Impostazioni: errore salvataggio ${String(error)}`);
       Alert.alert('Non salvato', 'Controlla la connessione e riprova.');
@@ -71,13 +70,9 @@ export default function ImpostazioniScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Impostazioni azienda</Text>
-        <Text style={styles.subtitle}>{locale ?? 'Nessuna azienda registrata su questo telefono'}</Text>
-        <Text style={styles.banner}>
-          {canSave
-            ? 'Schermata provvisoria per i test: in futuro sarà nell’area manager del Registro Online.'
-            : 'Schermata provvisoria: per ora si può salvare solo per i locali di prova. Le impostazioni qui sotto sono in sola lettura.'}
-        </Text>
+        <Text style={styles.title}>Impostazioni dipendenti</Text>
+        <Text style={styles.subtitle}>{locale}</Text>
+        <Text style={styles.banner}>Cosa possono fare i tuoi dipendenti dalla scheda Gestisci dell&apos;app.</Text>
 
         {!locale ? null : failed ? (
           <Text style={styles.muted}>Impostazioni non disponibili: controlla la connessione.</Text>
@@ -144,7 +139,7 @@ export default function ImpostazioniScreen() {
             {canSave && <AppButton title="Salva" onPress={save} loading={saving} style={styles.save} />}
           </>
         )}
-        <AppButton title="Indietro" variant="outline" onPress={() => router.back()} />
+        <AppButton title="Indietro" variant="outline" onPress={() => router.navigate('/piano')} />
       </ScrollView>
     </SafeAreaView>
   );

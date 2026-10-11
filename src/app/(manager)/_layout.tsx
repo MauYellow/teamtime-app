@@ -61,6 +61,8 @@ export default function ManagerLayout() {
         name="calendario"
         options={{ title: 'Calendario', tabBarIcon: tabIcon({ ios: 'calendar', android: 'calendar_month' }) }}
       />
+      {/* Impostazioni dipendenti: non è nella tab bar, si apre da "Il tuo piano". */}
+      <Tabs.Screen name="impostazioni" options={{ href: null }} />
     </Tabs>
   );
 }

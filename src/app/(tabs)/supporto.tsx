@@ -1,5 +1,3 @@
-import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -78,22 +76,6 @@ export default function SupportoScreen() {
               <Text style={styles.chevron}>›</Text>
             </Pressable>
           )}
-          ListHeaderComponent={
-            // PROVVISORIO: impostazioni del locale (poi andranno nell'area manager del Registro Online).
-            <Pressable
-              onPress={() => router.push('/impostazioni')}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
-              <View style={[styles.image, styles.iconBox]}>
-                <SymbolView name={{ ios: 'gearshape.fill', android: 'settings' }} tintColor={colors.primary} size={28} />
-              </View>
-              <View style={styles.texts}>
-                <Text style={styles.title}>Impostazioni azienda</Text>
-                <Text style={styles.subtitle}>Correzione uscite e richieste dei dipendenti (provvisorio)</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          }
           ListFooterComponent={<Text style={styles.version}>versione {APP_VERSION.toFixed(1)}</Text>}
         />
       )}
@@ -118,7 +100,6 @@ const styles = StyleSheet.create({
   },
   rowPressed: { backgroundColor: colors.surface, borderRadius: radius.input },
   image: { width: 44, height: 44 },
-  iconBox: { alignItems: 'center', justifyContent: 'center' },
   texts: { flex: 1 },
   title: { fontSize: 16, fontWeight: '700', color: colors.text },
   subtitle: { fontSize: 14, color: colors.muted, marginTop: 2 },

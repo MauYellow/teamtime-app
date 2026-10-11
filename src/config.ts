@@ -39,12 +39,6 @@ export const SETTING_KEYS = { version: 'Versione' } as const;
 /** Ogni quante scansioni riuscite (entrate + uscite) si chiede una recensione. Per provarla si può abbassare. */
 export const REVIEW_EVERY_SCANS = 20;
 
-/**
- * Impostazioni del locale da Supporto (PROVVISORIO, 11/10/2026): si possono salvare solo per questi locali di prova.
- * Poi la schermata passerà nell'area manager del Registro Online, dietro il login del manager.
- */
-export const PREFERENCES_TEST_LOCALES = ['teamtime031'];
-
 /** Splash: tentativi e attesa tra un tentativo e l'altro quando Airtable non risponde (come l'originale). */
 export const SPLASH_MAX_ATTEMPTS = 5;
 export const SPLASH_RETRY_DELAY_MS = 10_000;
