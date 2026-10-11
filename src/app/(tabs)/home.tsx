@@ -254,7 +254,7 @@ export default function HomeScreen() {
         style={({ pressed }) => [styles.hint, pressed && styles.hintPressed]}>
         <SymbolView name={{ ios: 'person.text.rectangle.fill', android: 'badge' }} tintColor={colors.primary} size={22} />
         <Text style={styles.hintText}>
-          Ora puoi vedere il conteggio mensile delle tue ore in <Text style={styles.hintStrong}>Accesso Dipendenti</Text>
+          Ora puoi vedere il conteggio mensile delle tue ore in <Text style={styles.hintStrong}>Accessi</Text>
         </Text>
       </Pressable>
       <BusyOverlay text={busy} />
@@ -304,7 +304,7 @@ function ShiftsCheck({ history, onPress }: { history: SavedHistory; onPress: () 
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityHint="Aggiorna i dati e apre Accesso Dipendenti"
+      accessibilityHint="Aggiorna i dati e apre Accessi"
       style={({ pressed }) => [styles.hint, styles.hintAlert, pressed && styles.hintPressed]}>
       <SymbolView name={{ ios: 'xmark.circle.fill', android: 'cancel' }} tintColor={colors.error} size={22} />
       <View style={styles.flexShrink}>

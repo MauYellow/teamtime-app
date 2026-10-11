@@ -12,7 +12,7 @@ function tabIcon(name: IconName) {
   };
 }
 
-// Tab bar dell'area dipendente (come la tab bar di Thunkable): Home, Accesso Dipendenti, Gestisci (nuova), Registro
+// Tab bar dell'area dipendente (come la tab bar di Thunkable): Home, Accessi (era Accesso Dipendenti), Gestisci (nuova), Registro
 // Online, Supporto.
 export default function TabsLayout() {
   return (
@@ -25,7 +25,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: tabIcon({ ios: 'house.fill', android: 'home' }) }} />
       <Tabs.Screen
         name="accesso"
-        options={{ title: 'Accesso Dipendenti', tabBarIcon: tabIcon({ ios: 'person.text.rectangle.fill', android: 'badge' }) }}
+        options={{ title: 'Accessi', tabBarIcon: tabIcon({ ios: 'person.text.rectangle.fill', android: 'badge' }) }}
       />
       <Tabs.Screen
         name="gestisci"

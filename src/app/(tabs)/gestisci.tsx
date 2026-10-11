@@ -102,7 +102,7 @@ export default function GestisciScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <LogoHeader variant="icon" />
-        <Text style={styles.empty}>Registrati come dipendente in Accesso Dipendenti per usare questa sezione.</Text>
+        <Text style={styles.empty}>Registrati come dipendente in Accessi per usare questa sezione.</Text>
       </SafeAreaView>
     );
   }
