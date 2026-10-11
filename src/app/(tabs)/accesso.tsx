@@ -364,6 +364,10 @@ function AlreadyRegistered() {
         </Pressable>
       </View>
 
+      <Pressable onPress={removeData} accessibilityRole="button">
+        <Text style={styles.link}>Richiedi la rimozione dei tuoi dati</Text>
+      </Pressable>
+
       <SectionHeader title="Ultimi accessi" info={HOURS_INFO} />
       {!saved ? (
         loading ? (
@@ -391,10 +395,6 @@ function AlreadyRegistered() {
           ))}
         </>
       )}
-
-      <Pressable onPress={removeData} accessibilityRole="button">
-        <Text style={styles.link}>Richiedi la rimozione dei tuoi dati</Text>
-      </Pressable>
     </ScrollView>
   );
 }
