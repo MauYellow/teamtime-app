@@ -20,6 +20,7 @@ import { AppButton } from '@/components/AppButton';
 import { BusyOverlay } from '@/components/BusyOverlay';
 import { LogoHeader } from '@/components/LogoHeader';
 import { PresenzaRow } from '@/components/PresenzaRow';
+import { SectionHeader } from '@/components/SectionHeader';
 import { useQrScanner } from '@/components/QrScanner';
 import { formatTime } from '@/lib/activities';
 import { confirmAlert, infoAlert } from '@/lib/dialogs';
@@ -44,6 +45,14 @@ import {
   setFirstAccessDone,
 } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
+
+/** Spiegazioni dietro le icone "i" di Accesso Dipendenti. */
+const HOURS_INFO =
+  'Le ore sono in formato decimale, già convertite per i calcoli del totale: 8,50 vuol dire 8 ore e mezza, non 8 ore ' +
+  'e 50 minuti.\n\nAltri esempi: 7,25 = 7 ore e 15 minuti; 6,75 = 6 ore e 45 minuti.';
+const PAST_MONTHS_INFO =
+  'Per i mesi precedenti è visibile solo il totale delle ore. Il dettaglio di entrate e uscite è nel registro del ' +
+  'tuo responsabile.';
 
 type Mode = 'new' | 'registered';
 type Locale = { locale: string; status: string };
@@ -346,7 +355,7 @@ function AlreadyRegistered() {
         </Pressable>
       </View>
 
-      <Text style={styles.sectionTitle}>Ultimi accessi</Text>
+      <SectionHeader title="Ultimi accessi" info={HOURS_INFO} />
       {!saved ? (
         loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
@@ -362,7 +371,7 @@ function AlreadyRegistered() {
       {/* Mesi passati: solo il totale (salvato finché il mese era completo, vedi lib/history.ts). */}
       {previous.length > 0 && (
         <>
-          <Text style={[styles.sectionTitle, styles.sectionSpacing]}>Mesi precedenti</Text>
+          <SectionHeader title="Mesi precedenti" info={PAST_MONTHS_INFO} style={styles.sectionSpacing} />
           {previous.map((month) => (
             <View key={month.key} style={styles.monthRow}>
               <Text style={styles.monthLabel}>{month.label}</Text>
@@ -371,10 +380,6 @@ function AlreadyRegistered() {
               </Text>
             </View>
           ))}
-          <Text style={styles.note}>
-            Per i mesi precedenti è visibile solo il totale. Il dettaglio delle presenze è nel registro del tuo
-            responsabile.
-          </Text>
         </>
       )}
 
@@ -452,7 +457,6 @@ const styles = StyleSheet.create({
   bold: { fontWeight: '700', color: colors.text },
   welcome: { fontSize: 24, fontWeight: '700', color: colors.text, textAlign: 'center' },
   sectionSpacing: { marginTop: spacing.md },
-  sectionTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
   monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -465,6 +469,5 @@ const styles = StyleSheet.create({
   monthLabel: { flex: 1, fontSize: 16, fontWeight: '600', color: colors.text },
   monthHours: { fontSize: 15, color: colors.text },
   unavailable: { color: colors.muted, fontStyle: 'italic', fontSize: 13 },
-  note: { fontSize: 12, color: colors.muted, textAlign: 'center', fontStyle: 'italic', marginTop: spacing.sm },
   empty: { textAlign: 'center', color: colors.muted, paddingVertical: spacing.lg },
 });

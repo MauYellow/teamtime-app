@@ -5,7 +5,6 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
-import { BrandTitle } from '@/components/BrandTitle';
 import { BusyOverlay } from '@/components/BusyOverlay';
 import { CompanyRequestBanner } from '@/components/CompanyRequestBanner';
 import { LogoHeader } from '@/components/LogoHeader';
@@ -214,7 +213,7 @@ export default function HomeScreen() {
           {/* Sempre attivo: alla scansione l'app controlla su Airtable se il dipendente è già uscito. */}
           <AppButton title="Registra Uscita" onPress={onExit} disabled={busy !== null} style={styles.flex} />
         </View>
-        <BrandTitle text="Ultime Attività" style={styles.sectionTitle} />
+        <Text style={styles.sectionTitle}>Ultime Attività</Text>
         {history ? (
           history.records.length > 0 ? (
             <View>
@@ -294,7 +293,7 @@ const styles = StyleSheet.create({
   buttons: { flexDirection: 'row', gap: spacing.sm },
   flex: { flex: 1 },
   flexShrink: { flexShrink: 1 },
-  sectionTitle: { marginTop: spacing.sm },
+  sectionTitle: { marginTop: spacing.sm, fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center' },
   empty: { textAlign: 'center', color: colors.muted, paddingVertical: spacing.md },
   hint: {
     flexDirection: 'row',
