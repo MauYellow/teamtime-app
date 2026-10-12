@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import type { ColorValue } from 'react-native';
 
 import { loadManagerData } from '@/lib/managerData';
+import { ensureDefaultPreferences } from '@/lib/preferences';
 import { useSession } from '@/lib/session';
 import { colors } from '@/theme';
 
@@ -22,9 +23,12 @@ export default function ManagerLayout() {
   const { manager } = useSession();
   const table = manager?.Locale;
 
-  // All'ingresso: tutte le presenze del locale in memoria, per Calendario e Conteggio (lib/managerData.ts).
+  // All'ingresso: tutte le presenze del locale in memoria, per Calendario e Conteggio (lib/managerData.ts), e
+  // impostazioni predefinite scritte su Airtable se la colonna "Impostazioni" è vuota.
   useEffect(() => {
-    if (table) loadManagerData(table);
+    if (!table) return;
+    loadManagerData(table);
+    ensureDefaultPreferences(table);
   }, [table]);
 
   if (!manager) return <Redirect href="/registro" />;

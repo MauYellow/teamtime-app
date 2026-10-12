@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,6 +32,7 @@ export default function ConteggioScreen() {
   const [month, setMonth] = useState<Month | null>(null);
   const [showTotals, setShowTotals] = useState(false);
   const [busy, setBusy] = useState<'mail' | 'excel' | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const months = useMemo(() => (records ? availableMonths(records) : []), [records]);
   const monthRecords = useMemo(() => (records && month ? recordsOfMonth(records, month) : []), [records, month]);
@@ -56,6 +57,14 @@ export default function ConteggioScreen() {
       { confirm: 'Continua' }
     );
   }, [atWork]);
+
+  /** Conteggio Veloce: con turni "al lavoro" avvisa prima, poi mostra i totali e scorre fino a vederli. */
+  const quickCount = async () => {
+    if (!month) return;
+    if (!(await confirmIfAtWork())) return;
+    setShowTotals(true);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  };
 
   const sendMail = async () => {
     if (!manager || !month) return;
@@ -127,7 +136,7 @@ export default function ConteggioScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ManagerExit />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         <Text style={styles.title}>Seleziona qui sotto uno dei mesi disponibili per effettuare il conteggio:</Text>
         {failed ? (
           <View style={styles.block}>
@@ -196,7 +205,7 @@ export default function ConteggioScreen() {
         <View style={styles.buttons}>
           <AppButton
             title="Conteggio Veloce"
-            onPress={() => setShowTotals(true)}
+            onPress={quickCount}
             disabled={!month}
             style={styles.button}
           />
