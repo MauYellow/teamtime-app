@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.teamtime.dasostituire",
+      "bundleIdentifier": "com.gmail.mauriziopolverini89.teamtime",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
