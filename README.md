@@ -82,6 +82,8 @@ Valori che possono cambiare: `src/config.ts`.
 - [ ] **Prima della prossima build (richiesta dell'utente, 12/10/2026): ricordarglielo.** In area manager → Impostazioni
       aggiungere GPS e Intercambio (attivabili/disattivabili) **solo** per chi ha l'abbonamento dagli store; chi paga
       con Stripe non li può cambiare (paga di più). Vedi SPEC §17.
+- [ ] Con l'acquisto in-app: scrivere "Apple" o "Android" nella colonna `Metodo di pagamento` (creata il 12/10/2026).
+      L'app non scrive mai "Stripe" e non tocca le righe/il flusso Stripe (vincolo dell'utente). Vedi SPEC §17.
 - [x] Package Android `com.gmail.mauriziopolverini89.teamtime` e `versionCode` 93 in `app.json` (Thunkable in produzione:
       versionCode 92, versione 3.001, 12/10/2026). A ogni nuova build per lo store alzare `versionCode` di 1.
 - [x] Bundle id iOS uguale al package Android (`com.gmail.mauriziopolverini89.teamtime`). Numero di build iOS: non
