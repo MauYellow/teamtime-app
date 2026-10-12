@@ -38,7 +38,11 @@ Telefono e PC devono potersi vedere in rete: le reti ospiti (hotel, uffici, "Gue
 caso collega il PC all'hotspot del telefono e rilancia il comando. Il tunnel (`npx expo start --go --tunnel`) è
 un'alternativa, ma su questo PC non si è collegato.
 
-Con una development build (serve per provare la migrazione dei dati della vecchia app):
+Pacchetto: `app.config.ts` aggiunge `.dev` al pacchetto Android e al bundle id iOS (nome "TeamTime Dev") in tutte le
+build tranne il profilo EAS `production` (`APP_VARIANT=production`). Così la build di sviluppo convive con l'app degli
+store. Per provare la migrazione dei dati della vecchia app serve invece il pacchetto vero: `APP_VARIANT=production`.
+
+Con una development build:
 ```bash
 npm run android          # Windows/Mac
 npm run ios              # solo Mac
@@ -75,8 +79,11 @@ Valori che possono cambiare: `src/config.ts`.
 `ios/` e `android/` sono generate (Continuous Native Generation): non modificarle a mano, si configura tutto in `app.json`.
 
 ## Prima della pubblicazione (checklist)
-- [ ] Bundle id iOS, package Android, numeri di versione/build: oggi in `app.json` ci sono segnaposto
-      (`com.teamtime.dasostituire`). Vanno messi quelli dell'app attuale (chiedere a Maurizio).
+- [x] Package Android `com.gmail.mauriziopolverini89.teamtime` e `versionCode` 93 in `app.json` (Thunkable in produzione:
+      versionCode 92, versione 3.001, 12/10/2026). A ogni nuova build per lo store alzare `versionCode` di 1.
+- [ ] Bundle id iOS e numero di build iOS: in `app.json` c'è ancora il segnaposto `com.teamtime.dasostituire`.
+- [ ] Chiave di firma Android: serve la chiave di caricamento usata da Thunkable (oppure reimpostarla da Play Console →
+      Integrità dell'app), in `credentials/` + `credentials.json` (esclusi da git).
 - [x] `ANDROID_PACKAGE` (`com.gmail.mauriziopolverini89.teamtime`) e `IOS_APP_STORE_ID` (`6443974498`) in
       `src/config.ts`, presi dai link della tabella Supporto. Da confermare il bundle id iOS per `app.json`.
 - [ ] **Provare la richiesta di recensione**: mettere `REVIEW_EVERY_SCANS = 2`, fare 2 timbrature, provare "Non ora" e

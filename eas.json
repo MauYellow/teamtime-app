@@ -20,6 +20,9 @@
       "android": {
         "credentialsSource": "local",
         "buildType": "app-bundle"
+      },
+      "env": {
+        "APP_VARIANT": "production"
       }
     }
   }
