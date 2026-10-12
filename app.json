@@ -20,7 +20,8 @@
         "foregroundImage": "./assets/images/app-icon.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.teamtime.dasostituire"
+      "package": "com.gmail.mauriziopolverini89.teamtime",
+      "versionCode": 93
     },
     "plugins": [
       "expo-router",
