@@ -83,8 +83,9 @@ Valori che possono cambiare: `src/config.ts`.
       versionCode 92, versione 3.001, 12/10/2026). A ogni nuova build per lo store alzare `versionCode` di 1.
 - [x] Bundle id iOS uguale al package Android (`com.gmail.mauriziopolverini89.teamtime`). Numero di build iOS: non
       impostato (= 1), va bene perché la versione 4.0.0 è nuova; alzarlo a ogni nuova build della stessa versione.
-- [ ] Chiave di firma Android: serve la chiave di caricamento usata da Thunkable (oppure reimpostarla da Play Console →
-      Integrità dell'app), in `credentials/` + `credentials.json` (esclusi da git).
+- [x] Chiave di firma Android: la stessa di Thunkable (alias `androidkey`, SHA-1 `6A:E4:B6:AA:…:E9:2B`) in
+      `credentials/android-upload.keystore` + `credentials.json` (esclusi da git, usati dal profilo EAS `production`).
+      Tenerne una copia di sicurezza fuori dal PC: senza, non si possono più pubblicare aggiornamenti Android.
 - [x] `ANDROID_PACKAGE` (`com.gmail.mauriziopolverini89.teamtime`) e `IOS_APP_STORE_ID` (`6443974498`) in
       `src/config.ts`, presi dai link della tabella Supporto. Da confermare il bundle id iOS per `app.json`.
 - [ ] **Provare la richiesta di recensione**: mettere `REVIEW_EVERY_SCANS = 2`, fare 2 timbrature, provare "Non ora" e
