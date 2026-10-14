@@ -1,73 +1,18 @@
-import { AIRTABLE_BASE_ID, AIRTABLE_TOKEN } from '@/config';
-import { reportError } from '@/lib/sentry';
+import { api } from '@/lib/api';
 
-// Client minimo per la base Airtable "Presenze" (REST API v0).
+// Tabelle delle presenze dei locali (una tabella per locale, SPEC §1.1), tramite il proxy (SPEC §18): stesse righe e
+// stessi campi di prima, ma il token Airtable resta sul server. Le altre tabelle (Locali Approvati, New QR Code,
+// Assistenza, Supporto, Mail, SendWebLogin) hanno ciascuna la propria operazione del proxy.
 
 export type AirtableRecord<T> = { id: string; createdTime: string; fields: T };
-
-type ListResponse<T> = { records: AirtableRecord<T>[]; offset?: string };
 
 export type ListOptions = {
   filterByFormula?: string;
   sort?: { field: string; direction?: 'asc' | 'desc' }[];
   fields?: string[];
-  /** Vista da cui leggere (ne segue anche l'ordine delle righe). */
-  view?: string;
-  pageSize?: number;
   /** Numero massimo di righe da leggere (default: tutte). */
   maxRecords?: number;
 };
-
-export class AirtableError extends Error {
-  constructor(
-    message: string,
-    readonly status?: number
-  ) {
-    super(message);
-  }
-}
-
-const API = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}`;
-
-function tableUrl(table: string) {
-  return `${API}/${encodeURIComponent(table)}`;
-}
-
-/** Tipo dell'errore Airtable dalla risposta ({"error":{"type":"..."}}), senza il messaggio. */
-function airtableErrorType(text: string) {
-  try {
-    const body = JSON.parse(text);
-    return String(body?.error?.type ?? body?.error ?? '');
-  } catch {
-    return '';
-  }
-}
-
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  if (!AIRTABLE_TOKEN) throw new AirtableError('Manca EXPO_PUBLIC_AIRTABLE_TOKEN in .env');
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_TOKEN}`,
-        'Content-Type': 'application/json',
-        ...init?.headers,
-      },
-    });
-  } catch (error) {
-    throw new AirtableError(`Connessione non riuscita: ${String(error)}`);
-  }
-  const text = await response.text();
-  if (!response.ok) {
-    const error = new AirtableError(`Airtable HTTP ${response.status}: ${text}`, response.status);
-    // A Sentry solo codice e tipo dell'errore (es. "HTTP 422 INVALID_FILTER_BY_FORMULA"), mai il testo completo, che
-    // può contenere nomi e valori. Le connessioni mancanti (telefono offline) non si segnalano: non sono errori dell'app.
-    reportError(new Error(`Airtable HTTP ${response.status} ${airtableErrorType(text)}`), 'airtable');
-    throw error;
-  }
-  return JSON.parse(text) as T;
-}
 
 /**
  * Testo sicuro da inserire in una formula Airtable tra doppi apici.
@@ -77,64 +22,37 @@ export function formulaString(value: string) {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-/** Legge le righe di una tabella (gestendo la paginazione). */
+/** Righe della tabella delle presenze di un locale (il server gestisce la paginazione). */
 export async function listRecords<T>(table: string, options: ListOptions = {}): Promise<AirtableRecord<T>[]> {
-  const records: AirtableRecord<T>[] = [];
-  let offset: string | undefined;
-  do {
-    const params = new URLSearchParams();
-    if (options.filterByFormula) params.set('filterByFormula', options.filterByFormula);
-    options.sort?.forEach((sort, index) => {
-      params.set(`sort[${index}][field]`, sort.field);
-      params.set(`sort[${index}][direction]`, sort.direction ?? 'asc');
-    });
-    options.fields?.forEach((field) => params.append('fields[]', field));
-    if (options.view) params.set('view', options.view);
-    if (options.pageSize) params.set('pageSize', String(options.pageSize));
-    if (options.maxRecords) params.set('maxRecords', String(options.maxRecords));
-    if (offset) params.set('offset', offset);
-
-    const data = await request<ListResponse<T>>(`${tableUrl(table)}?${params.toString()}`);
-    records.push(...data.records);
-    offset = data.offset;
-  } while (offset && (!options.maxRecords || records.length < options.maxRecords));
+  const { records } = await api<{ records: AirtableRecord<T>[] }>('/presenze/list', { table, ...options });
   return records;
 }
 
-/** Prima riga che soddisfa la formula, o null. */
-export async function findFirst<T>(table: string, filterByFormula: string): Promise<AirtableRecord<T> | null> {
-  const records = await listRecords<T>(table, { filterByFormula, maxRecords: 1 });
-  return records[0] ?? null;
+/** Una riga per ID; errore con codice "not_found" se non esiste più. */
+export async function getRecord<T>(table: string, id: string) {
+  const { record } = await api<{ record: AirtableRecord<T> }>('/presenze/get', { table, id });
+  return record;
 }
 
-/** Una riga per ID. */
-export function getRecord<T>(table: string, id: string) {
-  return request<AirtableRecord<T>>(`${tableUrl(table)}/${id}`);
+/**
+ * Entrata: nuova riga con Uscita "Al lavoro". Il server riprova senza GPS se la tabella non ha il campo e toglie le righe
+ * oltre Max Rows (prima lo faceva il telefono, SPEC §15.2).
+ */
+export async function createEntry<T>(
+  table: string,
+  fields: { Nome: string; Entrata: string; Device?: string; GPS?: string }
+) {
+  return api<{ record: AirtableRecord<T>; trimmed: number }>('/presenze/entry', { table, fields });
 }
 
-export function createRecord<T>(table: string, fields: Partial<T>) {
-  return request<AirtableRecord<T>>(tableUrl(table), {
-    method: 'POST',
-    body: JSON.stringify({ fields }),
-  });
-}
+export type ExitOutcome<T> =
+  | { status: 'done' | 'alreadyClosed'; record: AirtableRecord<T> }
+  | { status: 'gone'; record?: undefined };
 
-export function updateRecord<T>(table: string, id: string, fields: Partial<T>) {
-  return request<AirtableRecord<T>>(`${tableUrl(table)}/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ fields }),
-  });
-}
-
-export function deleteRecord(table: string, id: string) {
-  return request<{ id: string; deleted: boolean }>(`${tableUrl(table)}/${id}`, { method: 'DELETE' });
-}
-
-/** Cancella fino a 10 righe con una sola chiamata (limite dell'API). */
-export function deleteRecords(table: string, ids: string[]) {
-  const params = new URLSearchParams();
-  ids.slice(0, 10).forEach((id) => params.append('records[]', id));
-  return request<{ records: { id: string; deleted: boolean }[] }>(`${tableUrl(table)}?${params.toString()}`, {
-    method: 'DELETE',
-  });
+/**
+ * Uscita su una riga ancora "al lavoro" (scan di uscita, Gestisci, Correggi Orari). Il server rilegge la riga prima di
+ * scrivere: "alreadyClosed" se nel frattempo è stata chiusa (con la riga attuale), "gone" se è stata cancellata.
+ */
+export function setExit<T>(table: string, id: string, fields: { Uscita: string; 'GPS Uscita'?: string }) {
+  return api<ExitOutcome<T>>('/presenze/exit', { table, id, fields });
 }

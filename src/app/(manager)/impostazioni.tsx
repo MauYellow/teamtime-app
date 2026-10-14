@@ -6,9 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/AppButton';
 import { ManagerExit } from '@/components/ManagerExit';
 import { SectionHeader } from '@/components/SectionHeader';
-import { findFirst, formulaString, updateRecord, type AirtableRecord } from '@/lib/airtable';
+import { api } from '@/lib/api';
 import { writeCache } from '@/lib/cache';
-import { isYes, LOCALI_TABLE, localeCacheKey, type LocaleFields } from '@/lib/locali';
+import { isYes, localeCacheKey, type LocaleFields } from '@/lib/locali';
 import { log } from '@/lib/log';
 import { localePreferences, type LocalePreferences } from '@/lib/preferences';
 import { getSession, updateSession, useSession } from '@/lib/session';
@@ -20,24 +20,25 @@ import { colors, radius, spacing } from '@/theme';
 export default function ImpostazioniScreen() {
   const { manager } = useSession();
   const locale = manager?.Locale ?? null;
-  const [record, setRecord] = useState<AirtableRecord<LocaleFields> | null>(null);
+  const [record, setRecord] = useState<LocaleFields | null>(null);
   const [preferences, setPreferences] = useState<LocalePreferences | null>(null);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   /** GPS e Intercambio del locale (Locali Approvati). Modificabili solo con l'abbonamento dagli store (SPEC §17). */
   const [features, setFeatures] = useState({ gps: false, intercambio: false });
-  const featuresEditable = !!storeMethod(record?.fields);
+  const featuresEditable = !!storeMethod(record);
   const canSave = !!locale;
 
   useEffect(() => {
     if (!locale) return;
     let cancelled = false;
-    findFirst<LocaleFields>(LOCALI_TABLE, `{Locale} = ${formulaString(locale)}`)
-      .then((found) => {
+    // Riga del locale del manager tramite il proxy (con il gettone del login).
+    api<{ locale: LocaleFields }>('/manager/locale', { token: getSession().managerToken ?? '' })
+      .then(({ locale: found }) => {
         if (cancelled) return;
         setRecord(found);
-        setFeatures({ gps: isYes(found?.fields.GPS), intercambio: isYes(found?.fields.Intercambio) });
-        setPreferences(localePreferences(found?.fields ?? null));
+        setFeatures({ gps: isYes(found.GPS), intercambio: isYes(found.Intercambio) });
+        setPreferences(localePreferences(found));
       })
       .catch((error) => {
         log(`Impostazioni: errore lettura ${String(error)}`);
@@ -55,18 +56,17 @@ export default function ImpostazioniScreen() {
     if (!record || !preferences || !canSave) return;
     setSaving(true);
     try {
-      const updated = await updateRecord<LocaleFields>(LOCALI_TABLE, record.id, {
-        Impostazioni: JSON.stringify(preferences),
-        // Solo per chi paga dagli store: i clienti Stripe pagano GPS e Intercambio a parte, qui non si toccano.
-        ...(featuresEditable
-          ? { GPS: features.gps ? 'yes' : 'no', Intercambio: features.intercambio ? 'yes' : 'no' }
-          : {}),
+      // GPS e Intercambio contano solo per chi paga dagli store: per gli altri il proxy non li tocca (SPEC §17).
+      const { locale: updated } = await api<{ locale: LocaleFields }>('/manager/settings', {
+        token: getSession().managerToken ?? '',
+        impostazioni: preferences,
+        ...(featuresEditable ? { gps: features.gps, intercambio: features.intercambio } : {}),
       });
       setRecord(updated);
       // Sessione aggiornata subito: area manager e, se è anche il locale del dipendente su questo telefono, Gestisci.
       const sameAsEmployee = getSession().locale?.Locale === locale;
-      updateSession(sameAsEmployee ? { manager: updated.fields, locale: updated.fields } : { manager: updated.fields });
-      writeCache(localeCacheKey(locale ?? ''), updated.fields);
+      updateSession(sameAsEmployee ? { manager: updated, locale: updated } : { manager: updated });
+      writeCache(localeCacheKey(locale ?? ''), updated);
       log(`Impostazioni salvate per ${locale}: ${JSON.stringify(preferences)}`);
       Alert.alert('Salvato', 'Le impostazioni sono state aggiornate.', [{ text: 'OK' }]);
     } catch (error) {

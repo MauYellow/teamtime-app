@@ -7,19 +7,11 @@
  */
 export const APP_VERSION = 4.0;
 
-/** Base Airtable "Presenze" (condivisa con il portale web). */
-export const AIRTABLE_BASE_ID = 'appOwBv51ihqoT7Cx';
-/** Token Airtable (lettura e scrittura sulla base Presenze). Sta in .env, mai nel codice. */
-export const AIRTABLE_TOKEN = process.env.EXPO_PUBLIC_AIRTABLE_TOKEN ?? '';
-
-/** Chiave di geocode.maps.co (indirizzo dalla posizione GPS). Sta in .env. */
-export const GEOCODE_API_KEY = process.env.EXPO_PUBLIC_GEOCODE_API_KEY ?? '';
-
 /**
- * Chiave Brevo (contatti delle aziende che chiedono il QR Code). Sta in .env ma finisce dentro l'app, come in Thunkable:
- * da spostare su un server prima o poi (SPEC §15.5).
+ * Proxy TeamTime (SPEC §18): tutte le operazioni su Airtable, Telegram, Brevo e geocode passano dal server, che tiene
+ * le chiavi. L'app non contiene più nessuna chiave privata. Sta in .env (in locale l'IP del PC, es. http://192.168.1.10:8000).
  */
-export const BREVO_API_KEY = process.env.EXPO_PUBLIC_BREVO_API_KEY ?? '';
+export const PROXY_URL = (process.env.EXPO_PUBLIC_PROXY_URL ?? '').replace(/\/+$/, '');
 
 /** Chiavi pubbliche RevenueCat (abbonamento in-app, SPEC §17). Stanno in .env; se mancano, l'abbonamento è spento. */
 export const REVENUECAT_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '';
@@ -27,15 +19,6 @@ export const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID
 
 /** Sentry (errori e crash, regione UE). Sta in .env; se manca, Sentry è spento. */
 export const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? '';
-
-/** Log su Telegram (canale dello sviluppatore). Stanno in .env; se mancano, i log Telegram non partono. */
-export const TELEGRAM_BOT_KEY = process.env.EXPO_PUBLIC_TELEGRAM_BOT_KEY ?? '';
-export const TELEGRAM_CHANNEL_ID = process.env.EXPO_PUBLIC_TELEGRAM_CHANNEL_ID ?? '';
-/**
- * Tag dello sviluppatore nei messaggi Telegram importanti (prova gratuita attivata dall'app): con il tag arriva la
- * notifica anche se il gruppo è silenziato. Il trattino basso è preceduto da "\" per il formato Markdown di Telegram.
- */
-export const TELEGRAM_OWNER_TAG = '@Maurizio\\_182';
 
 /**
  * Impostazioni della nuova app: scheda del file "TeamTime - App Settings" PUBBLICATA SUL WEB in formato CSV

@@ -10,7 +10,7 @@ import { colors, spacing } from '@/theme';
 /** Chiude l'area manager e torna all'area dipendente (Registro Online). */
 export function managerLogout() {
   log('Area manager: uscita');
-  updateSession({ manager: null });
+  updateSession({ manager: null, managerToken: null });
   clearManagerData();
   router.dismissTo('/registro');
 }

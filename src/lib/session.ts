@@ -12,9 +12,11 @@ export type Session = {
   locale: LocaleFields | null;
   /** Locale del manager dopo il login nel Registro Online (null = area manager chiusa). */
   manager: LocaleFields | null;
+  /** Gettone del proxy dopo il login del manager (SPEC §18): serve per le operazioni dell'area manager. */
+  managerToken: string | null;
 };
 
-let state: Session = { settings: null, locale: null, manager: null };
+let state: Session = { settings: null, locale: null, manager: null, managerToken: null };
 const listeners = new Set<() => void>();
 
 export function getSession() {

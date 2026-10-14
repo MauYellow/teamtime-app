@@ -18,9 +18,9 @@ import { showScanResult } from '@/lib/navigation';
 import { askReview, shouldAskReview } from '@/lib/review';
 import {
   canUseOtherLocale,
-  entryMaxRows,
   friendlyScanMessage,
   hasEntryToday,
+  isKnownLocale,
   registerEntry,
   recordScanOutcome,
   registerExit,
@@ -132,13 +132,12 @@ export default function HomeScreen() {
 
     setBusy('Riconoscimento account in corso..');
     try {
-      const maxRows = await entryMaxRows(scanned, locale);
-      if (maxRows === null) {
+      if (!(await isKnownLocale(scanned, locale))) {
         log(`Intercambio: ${scanned} non è in Locali Approvati`);
         finish('Entrata', SCAN_MESSAGES.notLinked);
         return;
       }
-      const message = await registerEntry(scanned, maxRows, setBusy);
+      const message = await registerEntry(scanned, setBusy);
       finish('Entrata', message);
     } catch (error) {
       log(`Errore entrata: ${String(error)}`);

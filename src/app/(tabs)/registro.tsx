@@ -72,7 +72,7 @@ export default function RegistroScreen() {
       if (remember) await saveManagerCredentials(username.trim(), password);
       else await clearManagerCredentials();
       log(`Registro Online: accesso effettuato ${result.locale.Locale}`);
-      updateSession({ manager: result.locale });
+      updateSession({ manager: result.locale, managerToken: result.token });
       router.push('/calendario');
       // Richiesta di recensione ogni 10 accessi (SPEC §4), sopra il calendario appena aperto.
       countManagerLoginForReview();
@@ -88,18 +88,17 @@ export default function RegistroScreen() {
   const renew = async () => {
     if (!renewable) return;
     setLoading(true);
+    let locale: LocaleFields | null;
     try {
-      const locale = await renewSubscription(renewable);
-      if (locale?.Status !== 'Attivo') return;
-      log(`Registro Online: abbonamento rinnovato ${locale.Locale}`);
-      setError(null);
-      setRenewable(null);
-      if (remember) await saveManagerCredentials(username.trim(), password);
-      updateSession({ manager: locale });
-      router.push('/calendario');
+      locale = await renewSubscription(renewable);
     } finally {
       setLoading(false);
     }
+    if (locale?.Status !== 'Attivo') return;
+    log(`Registro Online: abbonamento rinnovato ${locale.Locale}`);
+    setRenewable(null);
+    // Nuovo accesso: il proxy dà il gettone per l'area manager.
+    await login();
   };
 
   return (

@@ -4,9 +4,10 @@ import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
 
 import { formatTime } from '@/lib/activities';
-import { createRecord, findFirst, formulaString, listRecords, updateRecord, type AirtableRecord } from '@/lib/airtable';
-import { LOCALI_TABLE, type LocaleFields } from '@/lib/locali';
-import { storeMethod, syncSubscription } from '@/lib/subscription';
+import { listRecords, setExit, type AirtableRecord } from '@/lib/airtable';
+import { api } from '@/lib/api';
+import type { LocaleFields } from '@/lib/locali';
+import { getSession } from '@/lib/session';
 
 // Registro Online e area manager (SPEC §7 e §8), con gli stessi formati del portale web.
 
@@ -18,34 +19,36 @@ export const LOGIN_MESSAGES = {
 };
 
 export type LoginResult =
-  | { ok: true; locale: LocaleFields }
+  | { ok: true; locale: LocaleFields; token: string }
   /** `renew`: locale che paga dagli store con l'abbonamento scaduto, si può rinnovare dall'app. */
   | { ok: false; message: string; renew?: LocaleFields };
 
+type LoginResponse =
+  | { ok: true; token: string; locale: LocaleFields }
+  | { ok: false; code: 'not_found' | 'wrong_password' | 'disabled' | 'expired'; renew?: LocaleFields };
+
+const LOGIN_CODES = {
+  not_found: LOGIN_MESSAGES.notFound,
+  wrong_password: LOGIN_MESSAGES.wrongPassword,
+  disabled: LOGIN_MESSAGES.disabled,
+  expired: LOGIN_MESSAGES.expired,
+} as const;
+
 /**
  * Login del manager con il nome del QR (sensibile alle maiuscole, come Thunkable) oppure con la Mail
- * ([miglioria] come il portale; la mail senza distinguere maiuscole).
+ * ([miglioria] come il portale; la mail senza distinguere maiuscole). Il controllo della password lo fa il proxy, che
+ * restituisce un gettone per l'area manager (SPEC §18); per i locali che pagano dagli store il proxy rilegge prima
+ * lo stato su RevenueCat (abbonamento rinnovato dallo store).
  */
 export async function loginManager(username: string, password: string): Promise<LoginResult> {
-  const user = username.trim();
-  const formula = user.includes('@')
-    ? `LOWER(TRIM({Mail})) = LOWER(${formulaString(user)})`
-    : `{Locale} = ${formulaString(user)}`;
-  const record = await findFirst<LocaleFields>(LOCALI_TABLE, formula);
-  if (!record?.fields.Locale) return { ok: false, message: LOGIN_MESSAGES.notFound };
-  if (String(record.fields.Password ?? '').trim() !== password.trim()) {
-    return { ok: false, message: LOGIN_MESSAGES.wrongPassword };
-  }
-  if (record.fields.Status !== 'Attivo') {
-    // Abbonamento dagli store: lo stato si rilegge da RevenueCat (potrebbe essere stato rinnovato dallo store).
-    if (storeMethod(record.fields)) {
-      const synced = await syncSubscription(record.fields);
-      if (synced?.Status === 'Attivo') return { ok: true, locale: synced };
-      return { ok: false, message: LOGIN_MESSAGES.expired, renew: record.fields };
-    }
-    return { ok: false, message: LOGIN_MESSAGES.disabled };
-  }
-  return { ok: true, locale: record.fields };
+  const result = await api<LoginResponse>('/manager/login', { username: username.trim(), password });
+  if (result.ok) return { ok: true, locale: result.locale, token: result.token };
+  return { ok: false, message: LOGIN_CODES[result.code] ?? LOGIN_MESSAGES.notFound, renew: result.renew };
+}
+
+/** Gettone del manager per le operazioni dell'area manager. */
+export function managerToken() {
+  return getSession().managerToken ?? '';
 }
 
 /** Riga di presenza come la legge l'area manager. */
@@ -95,9 +98,12 @@ export function fetchOpenPresenze(table: string) {
   });
 }
 
-/** Imposta l'uscita. [miglioria] minuti sempre a due cifre (l'originale poteva scrivere "18:5"). */
+/**
+ * Imposta l'uscita. [miglioria] minuti sempre a due cifre (l'originale poteva scrivere "18:5"). Il proxy scrive solo se
+ * la riga è ancora "al lavoro": "alreadyClosed" se nel frattempo è stata chiusa, "gone" se cancellata.
+ */
 export function setExitTime(table: string, recordId: string, time: Date) {
-  return updateRecord<PresenzaFields>(table, recordId, { Uscita: formatTime(time) });
+  return setExit<PresenzaFields>(table, recordId, { Uscita: formatTime(time) });
 }
 
 // --- Conteggio ---
@@ -182,11 +188,11 @@ export function formatHours(hours: number) {
  * "Invia Mail": riga nella tabella Mail, l'automazione Airtable "Mail dopo Conteggio Ore" la invia alla mail del
  * locale. Stesso formato delle righe create dall'app Thunkable (" Nome: 133.80 ore").
  */
-export function sendTotalsMail(locale: LocaleFields, month: Month, totals: EmployeeTotal[]) {
+export function sendTotalsMail(month: Month, totals: EmployeeTotal[]) {
   const total = totals.reduce((sum, item) => sum + item.hours, 0);
-  return createRecord('Mail', {
-    Locale: locale.Locale,
-    Mail: locale.Mail,
+  // Locale e mail del destinatario li prende il proxy dal gettone del manager.
+  return api('/manager/mail', {
+    token: managerToken(),
     Mese: month.month,
     'Totale Orari': totals.map((item) => ` ${item.name}: ${formatHours(item.hours)} ore`).join('\n'),
     'Totale Ore Lavorate': String(Math.round(total * 100) / 100),

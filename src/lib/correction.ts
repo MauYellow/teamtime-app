@@ -1,8 +1,8 @@
 import { formatTime } from '@/lib/activities';
-import { AirtableError, getRecord, updateRecord } from '@/lib/airtable';
+import { setExit } from '@/lib/airtable';
 import { addRecordToHistory, dayLabel, localDay, openPastShifts, removeRecordFromHistory, today } from '@/lib/history';
 import { log } from '@/lib/log';
-import { isAtWork, type Presenza, type PresenzaFields } from '@/lib/manager';
+import { type Presenza, type PresenzaFields } from '@/lib/manager';
 import type { LocalePreferences } from '@/lib/preferences';
 import { getEmployeeName } from '@/lib/storage';
 import { sendTelegram } from '@/lib/telegram';
@@ -69,36 +69,24 @@ export function checkExit(record: Presenza, exit: Date, preferences: LocalePrefe
 export type CorrectionResult = 'done' | 'alreadyClosed' | 'gone';
 
 /**
- * Scrive l'uscita. Prima rilegge la riga (1 chiamata): se nel frattempo il manager l'ha già chiusa o cancellata non si
- * tocca niente. Poi la scrittura (1 chiamata); la riga restituita da Airtable entra nella copia.
+ * Scrive l'uscita tramite il proxy (1 chiamata), che prima rilegge la riga: se nel frattempo il manager l'ha già chiusa
+ * o cancellata non si tocca niente. Tabelle vecchie senza "GPS Uscita": il proxy scrive solo l'uscita. La riga
+ * restituita entra nella copia.
  */
 export async function correctExit(table: string, record: Presenza, exit: Date): Promise<CorrectionResult> {
-  let current: Presenza;
-  try {
-    current = await getRecord<PresenzaFields>(table, record.id);
-  } catch (error) {
-    if (error instanceof AirtableError && error.status === 404) {
-      removeRecordFromHistory(record.id);
-      log(`Gestisci: turno ${record.id} non più presente su Airtable`);
-      return 'gone';
-    }
-    throw error;
+  const time = formatTime(exit);
+  const outcome = await setExit<PresenzaFields>(table, record.id, { Uscita: time, 'GPS Uscita': EMPLOYEE_EXIT_MARK });
+  if (outcome.status === 'gone') {
+    removeRecordFromHistory(record.id);
+    log(`Gestisci: turno ${record.id} non più presente su Airtable`);
+    return 'gone';
   }
-  if (!isAtWork(current)) {
-    addRecordToHistory(table, current);
-    log(`Gestisci: turno ${record.id} già chiuso (uscita ${current.fields.Uscita})`);
+  if (outcome.status === 'alreadyClosed') {
+    addRecordToHistory(table, outcome.record);
+    log(`Gestisci: turno ${record.id} già chiuso (uscita ${outcome.record.fields.Uscita})`);
     return 'alreadyClosed';
   }
-
-  const time = formatTime(exit);
-  let updated: Presenza;
-  try {
-    updated = await updateRecord<PresenzaFields>(table, record.id, { Uscita: time, 'GPS Uscita': EMPLOYEE_EXIT_MARK });
-  } catch (error) {
-    // Tabelle vecchie senza "GPS Uscita": si scrive solo l'uscita.
-    if (!(error instanceof AirtableError && error.status === 422)) throw error;
-    updated = await updateRecord<PresenzaFields>(table, record.id, { Uscita: time });
-  }
+  const updated = outcome.record;
   addRecordToHistory(table, updated);
   const name = getEmployeeName() ?? '';
   log(`Gestisci: uscita ${time} inserita dal dipendente per ${dayLabel(record)} (${record.id})`);

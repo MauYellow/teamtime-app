@@ -1,8 +1,6 @@
-import { findFirst, formulaString, listRecords } from '@/lib/airtable';
+import { api } from '@/lib/api';
 
-// Tabella "Locali Approvati": un record per ogni locale cliente (vedi SPEC §1.1).
-
-export const LOCALI_TABLE = 'Locali Approvati';
+// Tabella "Locali Approvati": un record per ogni locale cliente (vedi SPEC §1.1), letta tramite il proxy (SPEC §18).
 
 export type LocaleFields = {
   Locale?: string;
@@ -38,10 +36,14 @@ export function isYes(value: string | undefined) {
   return value?.trim().toLowerCase() === 'yes';
 }
 
-/** Record del locale con quel nome (sensibile alle maiuscole, come Thunkable), o null. */
+/**
+ * Campi del locale con quel nome (sensibile alle maiuscole, come Thunkable), o null. Tramite il proxy arrivano solo i
+ * campi pubblici (Locale, Nome, Status, GPS, Intercambio, Max Rows, Impostazioni, Metodo di pagamento): mai password e
+ * dati del titolare (SPEC §18).
+ */
 export async function fetchLocale(locale: string) {
-  const record = await findFirst<LocaleFields>(LOCALI_TABLE, `{Locale} = ${formulaString(locale)}`);
-  return record?.fields ?? null;
+  const result = await api<{ locale: LocaleFields | null }>('/locali/get', { locale });
+  return result.locale;
 }
 
 /** Chiave della cache del record di un locale. */
@@ -52,8 +54,5 @@ export function localeCacheKey(locale: string) {
 
 /** Elenco dei nomi di tutti i locali (Accesso Dipendenti e controllo del QR). */
 export async function fetchLocaleNames() {
-  const records = await listRecords<LocaleFields>(LOCALI_TABLE, { fields: ['Locale', 'Status'] });
-  return records
-    .map((record) => ({ locale: record.fields.Locale?.trim() ?? '', status: record.fields.Status ?? '' }))
-    .filter((item) => item.locale.length > 0);
+  return api<{ locale: string; status: string }[]>('/locali/names');
 }

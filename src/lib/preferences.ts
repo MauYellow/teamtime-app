@@ -1,6 +1,6 @@
-import { findFirst, formulaString, updateRecord } from '@/lib/airtable';
+import { api } from '@/lib/api';
 import { writeCache } from '@/lib/cache';
-import { LOCALI_TABLE, localeCacheKey, type LocaleFields } from '@/lib/locali';
+import { localeCacheKey, type LocaleFields } from '@/lib/locali';
 import { log } from '@/lib/log';
 import { getSession, updateSession } from '@/lib/session';
 
@@ -55,24 +55,21 @@ export function localePreferences(locale: LocaleFields | null): LocalePreference
 
 /**
  * All'ingresso del manager: se la colonna "Impostazioni" del suo locale è vuota, ci scrive i valori predefiniti
- * (12/10/2026). Così su Airtable si vede cosa vale per quel locale. Un errore qui non blocca niente: l'app usa
- * comunque i predefiniti.
+ * (12/10/2026), tramite il proxy con il gettone del manager. Così su Airtable si vede cosa vale per quel locale. Un errore
+ * qui non blocca niente: l'app usa comunque i predefiniti.
  */
 export async function ensureDefaultPreferences(locale: string) {
   try {
-    const record = await findFirst<LocaleFields>(LOCALI_TABLE, `{Locale} = ${formulaString(locale)}`);
-    if (!record || record.fields.Impostazioni?.trim()) return;
-    const updated = await updateRecord<LocaleFields>(LOCALI_TABLE, record.id, {
-      Impostazioni: JSON.stringify(DEFAULT_PREFERENCES),
+    const result = await api<{ changed: boolean; locale: LocaleFields }>('/manager/ensure-defaults', {
+      token: getSession().managerToken ?? '',
     });
+    if (!result.changed) return;
     const session = getSession();
     if (session.manager?.Locale !== locale) return;
     updateSession(
-      session.locale?.Locale === locale
-        ? { manager: updated.fields, locale: updated.fields }
-        : { manager: updated.fields }
+      session.locale?.Locale === locale ? { manager: result.locale, locale: result.locale } : { manager: result.locale }
     );
-    writeCache(localeCacheKey(locale), updated.fields);
+    writeCache(localeCacheKey(locale), result.locale);
     log(`Impostazioni predefinite salvate per ${locale}`);
   } catch (error) {
     log(`Impostazioni predefinite non salvate per ${locale}: ${String(error)}`);

@@ -77,7 +77,7 @@ export default function ConteggioScreen() {
       return;
     setBusy('mail');
     try {
-      await sendTotalsMail(manager, month, totals);
+      await sendTotalsMail(month, totals);
       log(`Conteggio: mail richiesta per ${month.key}`);
       Alert.alert('Mail inviata', `Il riepilogo arriverà a ${manager.Mail} entro pochi minuti.`);
     } catch (error) {

@@ -1,16 +1,8 @@
 import { formatTime } from '@/lib/activities';
-import {
-  AirtableError,
-  createRecord,
-  deleteRecords,
-  formulaString,
-  listRecords,
-  updateRecord,
-  type AirtableRecord,
-} from '@/lib/airtable';
+import { createEntry, formulaString, listRecords, setExit, type AirtableRecord } from '@/lib/airtable';
 import { DEVICE } from '@/lib/device';
 import { addRecordToHistory, historyHasEntryToday } from '@/lib/history';
-import { fetchLocale, isYes, type LocaleFields } from '@/lib/locali';
+import { fetchLocale, isYes } from '@/lib/locali';
 import { getCurrentAddress } from '@/lib/location';
 import { log } from '@/lib/log';
 import { countScanForReview } from '@/lib/review';
@@ -19,17 +11,12 @@ import {
   clearLastScanError,
   getEmployeeLocale,
   getEmployeeName,
-  getOldestId,
   saveLastScanError,
-  setOldestId,
   type ScanError,
 } from '@/lib/storage';
 import { scanTelegramText, sendTelegram } from '@/lib/telegram';
 
 // Timbrature di entrata e uscita (SPEC §4.1 e §4.2), come i blocchi "ScriviOrario" e "Scrivi Uscita" di Thunkable.
-
-/** Limite di righe per tabella quando Max Rows manca in Locali Approvati. */
-const DEFAULT_MAX_ROWS = 350;
 
 export const SCAN_MESSAGES = {
   ok: 'Scan registrato correttamente.',
@@ -54,11 +41,6 @@ type PresenzaFields = {
 export type ScanStatus = (text: string) => void;
 
 export type ExitResult = { kind: 'done'; message: string } | { kind: 'alreadyOut' } | { kind: 'noEntry' };
-
-function maxRowsOf(locale: LocaleFields | null) {
-  const value = Number(locale?.['Max Rows']);
-  return Number.isFinite(value) && value > 0 ? value : DEFAULT_MAX_ROWS;
-}
 
 /** True se nella copia di Airtable c'è già una presenza di oggi (lib/history.ts: unica fonte, niente dati del telefono). */
 export function hasEntryToday() {
@@ -98,16 +80,14 @@ export function canUseOtherLocale() {
 }
 
 /**
- * Max Rows della tabella su cui si scrive l'entrata: quello del locale del dipendente, oppure (Intercambio) quello del
- * locale scansionato. Null se il QR scansionato non è un locale di Locali Approvati.
+ * True se il QR scansionato è un locale di Locali Approvati (il proprio sempre). [SPEC §18] Max Rows non serve più qui:
+ * le righe oltre il limite le toglie il proxy.
  */
-export async function entryMaxRows(scanned: string, ownLocale: string) {
-  if (scanned === ownLocale) return maxRowsOf(getSession().locale);
+export async function isKnownLocale(scanned: string, ownLocale: string) {
+  if (scanned === ownLocale) return true;
   const other = await fetchLocale(scanned);
-  if (!other) return null;
-  const maxRows = maxRowsOf(other);
-  log(`Cambio variabile Max Row in base a locale in Intercambio: ${maxRows}`);
-  return maxRows;
+  if (other) log(`Intercambio: ${scanned} riconosciuto`);
+  return !!other;
 }
 
 /** Testo del campo GPS / GPS Uscita: indirizzo attuale se il locale ha GPS = yes. */
@@ -118,95 +98,39 @@ async function gpsText(kind: 'Entrata' | 'Uscita') {
   return (await getCurrentAddress()) ?? 'Posizione non condivisa';
 }
 
-/**
- * Scrive su Airtable; se la tabella non ha uno dei campi facoltativi (es. "GPS Uscita" in teamtime_free e Micio)
- * riprova senza quei campi, così la timbratura non si blocca.
- */
-async function writeTolerant<T>(
-  fields: PresenzaFields,
-  optional: (keyof PresenzaFields)[],
-  write: (fields: PresenzaFields) => Promise<T>
-) {
-  try {
-    return await write(fields);
-  } catch (error) {
-    if (!(error instanceof AirtableError) || error.status !== 422 || !error.message.includes('UNKNOWN_FIELD_NAME')) {
-      throw error;
-    }
-    log(`Campo assente nella tabella, riprovo senza ${optional.join(', ')}`);
-    const reduced = { ...fields };
-    optional.forEach((key) => delete reduced[key]);
-    return write(reduced);
-  }
-}
-
 function responseText(record: AirtableRecord<PresenzaFields>) {
   return JSON.stringify({ id: record.id, createdTime: record.createdTime, fields: record.fields });
 }
 
 /**
- * Limite righe (Max Rows), come l'app Thunkable: una riga va cancellata quando tra il suo ID e quello della riga appena
- * creata ci sono almeno Max Rows righe. Il portale dà per scontato questo limite. Un errore qui non blocca la timbratura.
- *
- * [miglioria, SPEC §15.2] Thunkable a ogni entrata leggeva l'ID più basso e quello più alto e cancellava una riga
- * (3 chiamate). Ora l'ID più alto arriva dalla risposta della creazione, l'ID più basso è ricordato sul telefono e si
- * rilegge solo quando si arriva al limite; le righe in eccesso si cancellano insieme (fino a 10 per chiamata).
- * Se altri telefoni o il portale cancellano righe, l'ID ricordato è solo più basso del vero: si ricontrolla prima,
- * senza cancellare nulla di troppo.
+ * Scrive l'entrata nella tabella del locale scansionato. Restituisce il messaggio per Scan Result.
+ * [SPEC §18] Tramite il proxy, che riprova senza GPS se la tabella non ha il campo e toglie le righe oltre Max Rows
+ * (prima lo faceva il telefono: SPEC §15.2).
  */
-async function trimTable(table: string, maxRows: number, newId: number | undefined) {
-  if (newId === undefined) return;
-  const oldestId = getOldestId(table);
-  // newId < oldestId: la tabella è stata ricreata (gli ID ripartono), il valore ricordato non vale più.
-  if (oldestId !== null && newId >= oldestId && newId - oldestId < maxRows) return;
-
-  try {
-    const oldest = await listRecords<PresenzaFields>(table, {
-      fields: ['ID'],
-      sort: [{ field: 'ID', direction: 'asc' }],
-      maxRecords: 10,
-    });
-    const excess = oldest.filter((record) => record.fields.ID !== undefined && newId - record.fields.ID >= maxRows);
-    if (excess.length > 0) {
-      await deleteRecords(
-        table,
-        excess.map((record) => record.id)
-      );
-      log(`[API Airtable] Limite ${maxRows} righe: cancellate ${excess.length} righe vecchie (${table})`);
-    }
-    const remaining = oldest.find((record) => !excess.includes(record));
-    const lastDeleted = excess[excess.length - 1]?.fields.ID;
-    const nextOldest = remaining?.fields.ID ?? (lastDeleted !== undefined ? lastDeleted + 1 : undefined);
-    if (nextOldest !== undefined) setOldestId(table, nextOldest);
-    log(`Riga con ID minore: ${nextOldest}, ID nuova riga: ${newId}`);
-  } catch (error) {
-    log(`Ridimensionamento database non riuscito: ${String(error)}`);
-  }
-}
-
-/** Scrive l'entrata nella tabella del locale scansionato. Restituisce il messaggio per Scan Result. */
-export async function registerEntry(table: string, maxRows: number, onStatus: ScanStatus) {
+export async function registerEntry(table: string, onStatus: ScanStatus) {
   const name = getEmployeeName() ?? '';
-  const now = new Date();
-  const time = formatTime(now);
+  const time = formatTime(new Date());
 
   onStatus('Aggiornamento del database..');
-  const fields: PresenzaFields = { Nome: name, Entrata: time, Uscita: 'Al lavoro', Device: DEVICE, GPS: await gpsText('Entrata') };
   let record: AirtableRecord<PresenzaFields>;
   try {
-    record = await writeTolerant(fields, ['GPS'], (data) => createRecord<PresenzaFields>(table, data));
+    const result = await createEntry<PresenzaFields>(table, {
+      Nome: name,
+      Entrata: time,
+      Device: DEVICE,
+      GPS: await gpsText('Entrata'),
+    });
+    record = result.record;
+    if (result.trimmed > 0) log(`[Proxy] Limite righe: cancellate ${result.trimmed} righe vecchie (${table})`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log(`[API Airtable] Errore entrata: ${message}`);
+    log(`[Proxy] Errore entrata: ${message}`);
     sendTelegram(scanTelegramText(name, table, 'Entrata', `Errore: ${message}`));
     return `Errore: ${message}`;
   }
   const response = responseText(record);
-  log(`[API Airtable]: ${response}`);
+  log(`[Proxy]: ${response}`);
   sendTelegram(scanTelegramText(name, table, 'Entrata', response));
-
-  onStatus('Ridimensionamento database..');
-  await trimTable(table, maxRows, record.fields.ID);
 
   onStatus('Salvataggio dati nel dispositivo..');
   // La riga restituita da Airtable (stessa chiamata) va nella copia: Home e Accesso Dipendenti si aggiornano subito.
@@ -253,21 +177,28 @@ export async function registerExit(table: string, onStatus: ScanStatus): Promise
   log(`[API Airtable] Riconosciuto che l'ultimo accesso è "Al lavoro": ${latest.id}`);
 
   onStatus('Aggiornamento del database..');
-  const now = new Date();
-  const time = formatTime(now);
-  const fields: PresenzaFields = { Uscita: time, 'GPS Uscita': await gpsText('Uscita') };
+  const time = formatTime(new Date());
   let record: AirtableRecord<PresenzaFields>;
   try {
-    record = await writeTolerant(fields, ['GPS Uscita'], (data) =>
-      updateRecord<PresenzaFields>(table, latest.id, data)
-    );
+    // Il proxy rilegge la riga: se nel frattempo è stata chiusa o cancellata (es. dal manager) non scrive.
+    const outcome = await setExit<PresenzaFields>(table, latest.id, { Uscita: time, 'GPS Uscita': await gpsText('Uscita') });
+    if (outcome.status === 'alreadyClosed') {
+      addRecordToHistory(table, outcome.record);
+      log('Riga chiusa nel frattempo');
+      return { kind: 'alreadyOut' };
+    }
+    if (outcome.status === 'gone') {
+      log('Riga cancellata nel frattempo');
+      return { kind: 'noEntry' };
+    }
+    record = outcome.record;
   } catch (error) {
     log(`Errore dopo aver riconosciuto l'uscita: ${String(error)}`);
     sendTelegram(scanTelegramText(name, table, 'Uscita', `Errore: ${String(error)}`));
     return { kind: 'done', message: SCAN_MESSAGES.connection };
   }
   const response = responseText(record);
-  log(`[API Airtable]: ${response}`);
+  log(`[Proxy]: ${response}`);
   sendTelegram(scanTelegramText(name, table, 'Uscita', response));
 
   onStatus('Salvataggio dati nel dispositivo..');

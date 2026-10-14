@@ -51,7 +51,18 @@ export default function CorreggiScreen() {
     const time = await pickTime(`Uscita di ${row.fields.Nome ?? 'dipendente'}`);
     if (!time) return;
     try {
-      updateManagerRecord(await setExitTime(table, row.id, time));
+      const outcome = await setExitTime(table, row.id, time);
+      if (outcome.status === 'gone') {
+        Alert.alert('Presenza non trovata', 'Questa presenza è stata cancellata nel frattempo.');
+        load();
+        return;
+      }
+      updateManagerRecord(outcome.record);
+      if (outcome.status === 'alreadyClosed') {
+        Alert.alert('Uscita già registrata', `Nel frattempo è stata registrata l'uscita (${outcome.record.fields.Uscita ?? ''}).`);
+        load();
+        return;
+      }
       log(`Modifica Orari: uscita ${formatTime(time)} per ${row.id}`);
       Alert.alert('Ben fatto!', 'Modifica effettuata con successo!');
       setRows((current) => current?.filter((item) => item.id !== row.id) ?? null);

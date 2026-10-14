@@ -1,17 +1,13 @@
-import { BREVO_API_KEY, WHATSAPP_SUPPORT_URL } from '@/config';
+import { WHATSAPP_SUPPORT_URL } from '@/config';
 import { formatTime } from '@/lib/activities';
-import { createRecord, findFirst, formulaString } from '@/lib/airtable';
+import { api } from '@/lib/api';
 import { DEVICE } from '@/lib/device';
-import { LOCALI_TABLE } from '@/lib/locali';
 import { log } from '@/lib/log';
 import { saveSentCompanyRequest, type SentCompanyRequest } from '@/lib/storage';
 import { sendTelegram } from '@/lib/telegram';
 
-// Registrazione azienda (SPEC §10): Richiedi QR Code → Quando Contattare → riga in "New QR Code" + contatto Brevo.
-
-const NEW_QR_TABLE = 'New QR Code';
-/** Lista Brevo dei nuovi contatti (come l'app Thunkable). */
-const BREVO_LIST_ID = 2;
+// Registrazione azienda (SPEC §10): Richiedi QR Code → Quando Contattare → riga in "New QR Code" + contatto Brevo,
+// tramite il proxy (la chiave Brevo resta sul server, SPEC §18).
 
 /**
  * Fasce di dipendenti, uguali ai 3 piani del sito (START, TEAMS, BUSINESS). [develop 11/10/2026] Al posto del numero
@@ -52,10 +48,9 @@ export async function validateRequest(request: CompanyRequest): Promise<string |
   }
   if (/\s/.test(locale)) return "Non sono ammessi spazi nel nome dell'azienda";
   // Nome = contenuto del QR = nome della tabella: deve essere unico (confronto sensibile alle maiuscole, come Thunkable).
-  if (await findFirst(NEW_QR_TABLE, `{Locale} = ${formulaString(locale)}`)) {
-    return 'Questo nome azienda è già utilizzato, prova con un altro';
-  }
-  if (await findFirst(LOCALI_TABLE, `{Locale} = ${formulaString(locale)}`)) {
+  const { problem } = await api<{ problem: 'used' | 'registered' | null }>('/registration/check', { locale });
+  if (problem === 'used') return 'Questo nome azienda è già utilizzato, prova con un altro';
+  if (problem === 'registered') {
     return "Azienda già registrata e convalidata. Per assistenza contattaci dalla sezione Supporto dell'app";
   }
   return null;
@@ -82,26 +77,6 @@ export function whatsappUrl(request?: SentCompanyRequest | null) {
   return `${WHATSAPP_SUPPORT_URL}?text=${encodeURIComponent(text)}`;
 }
 
-/** Aggiunge il contatto alla lista Brevo. Un errore qui non blocca la registrazione. */
-async function addToBrevo(mail: string) {
-  if (!BREVO_API_KEY) {
-    log('Brevo: chiave assente, contatto non aggiunto');
-    return;
-  }
-  try {
-    const response = await fetch('https://api.brevo.com/v3/contacts', {
-      method: 'POST',
-      headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ email: mail, listIds: [BREVO_LIST_ID] }),
-    });
-    const text = await response.text();
-    log(`Brevo: HTTP ${response.status}`);
-    sendTelegram(`Aggiunto nuovo contatto in Brevo: ${text || response.status}`);
-  } catch (error) {
-    log(`Brevo: errore ${String(error)}`);
-  }
-}
-
 /**
  * Crea la richiesta in "New QR Code" (la vede Maurizio per l'attivazione), aggiunge la mail su Brevo e la ricorda sul
  * telefono per l'avviso in Home. Restituisce i dati per il messaggio WhatsApp.
@@ -119,11 +94,11 @@ export async function submitRequest(request: CompanyRequest, day: Date, time: Da
     'Quando Contattare': formatContactTime(day, time),
     Device: DEVICE,
   };
-  await createRecord<NewQrFields>(NEW_QR_TABLE, fields);
+  // Il proxy crea la riga e aggiunge la mail alla lista Brevo (con il suo messaggio Telegram).
+  await api('/registration/submit', { fields });
   log(`Richiesta QR Code creata: ${locale}`);
   sendTelegram(`*Nuova richiesta QR Code*: ${locale} *Quando contattare*: ${fields['Quando Contattare']}`);
   const sent = { locale, employees: request.employees.trim(), day: formatDay(day), time: formatTime(time) };
   saveSentCompanyRequest(sent);
-  await addToBrevo(mail);
   return sent;
 }

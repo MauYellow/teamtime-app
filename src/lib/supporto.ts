@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
-import { listRecords } from '@/lib/airtable';
+import type { AirtableRecord } from '@/lib/airtable';
+import { api } from '@/lib/api';
 
 // Tabella "Supporto": voci della schermata Supporto (SPEC §9).
 
@@ -16,7 +17,7 @@ export type SupportItem = { id: string; title: string; subtitle: string; image: 
 
 export async function fetchSupportItems(): Promise<SupportItem[]> {
   // Stesso ordine della vista della tabella (come la Data Viewer List di Thunkable).
-  const records = await listRecords<SupportoFields>('Supporto', { view: 'Grid view' });
+  const { records } = await api<{ records: AirtableRecord<SupportoFields>[] }>('/supporto');
   return records
     .filter((record) => record.fields.Titolo?.trim())
     .map((record) => ({

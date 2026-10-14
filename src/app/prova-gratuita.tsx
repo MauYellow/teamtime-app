@@ -19,13 +19,13 @@ import { AppButton } from '@/components/AppButton';
 import { BusyOverlay } from '@/components/BusyOverlay';
 import { LogoHeader } from '@/components/LogoHeader';
 import { EULA_URL, PRIVACY_URL, WHATSAPP_SUPPORT_URL } from '@/config';
-import { findFirst, formulaString } from '@/lib/airtable';
-import { LOCALI_TABLE, type LocaleFields } from '@/lib/locali';
+import { api, ApiError } from '@/lib/api';
 import { log } from '@/lib/log';
 import { reportError } from '@/lib/sentry';
 import { saveManagerCredentials } from '@/lib/storage';
 import {
   activateLocale,
+  clearPendingActivation,
   getPendingActivation,
   isPurchasesReady,
   startTrialPaywall,
@@ -58,11 +58,8 @@ export default function ProvaGratuitaScreen() {
     const values = Object.values(data).map((value) => value.trim());
     if (values.some((value) => !value) || !data.mail.includes('@')) return 'Compila tutti i campi correttamente';
     // La mail è anche il nome utente del Registro Online: deve essere di una sola azienda.
-    const existing = await findFirst<LocaleFields>(
-      LOCALI_TABLE,
-      `LOWER(TRIM({Mail})) = LOWER(${formulaString(data.mail.trim())})`
-    );
-    if (existing) return 'Questa mail è già registrata: accedi dal Registro Online oppure usa un’altra mail';
+    const { exists } = await api<{ exists: boolean }>('/mail-exists', { mail: data.mail.trim() });
+    if (exists) return 'Questa mail è già registrata: accedi dal Registro Online oppure usa un’altra mail';
     return null;
   };
 
@@ -78,6 +75,31 @@ export default function ProvaGratuitaScreen() {
       setDone(result);
     } catch (err) {
       log(`Prova gratuita: attivazione non riuscita ${String(err)}`);
+      const code = err instanceof ApiError ? err.code : '';
+      if (code === 'test_table_not_empty') {
+        // Solo nelle prove: la tabella di prova va ripristinata prima di riprovare.
+        clearPendingActivation();
+        setPending(null);
+        Alert.alert('Prova non eseguita', 'La tabella di prova teamtime037 non è vuota: ripristinarla e riprovare.');
+        return;
+      }
+      if (code === 'no_table') {
+        setPending(getPendingActivation());
+        Alert.alert(
+          'Attivazione in corso',
+          'Il tuo abbonamento è registrato. Stiamo preparando la tua azienda: ti contattiamo noi a breve per completare ' +
+            "l'attivazione."
+        );
+        return;
+      }
+      if (code === 'mail_exists') {
+        setPending(getPendingActivation());
+        Alert.alert(
+          'Mail già registrata',
+          'Questa mail risulta già registrata. Contattaci: colleghiamo noi il tuo abbonamento alla tua azienda.'
+        );
+        return;
+      }
       reportError(err, 'activateLocale');
       setPending(getPendingActivation());
       Alert.alert(

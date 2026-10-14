@@ -1,9 +1,7 @@
-import { createRecord } from '@/lib/airtable';
+import { api } from '@/lib/api';
 import { DEVICE } from '@/lib/device';
 import { getLog, log } from '@/lib/log';
 import { getEmployeeName } from '@/lib/storage';
-
-type AssistenzaFields = { Name?: string; Notes?: string; Device?: string };
 
 /**
  * Invia il log allo sviluppatore come riga della tabella Assistenza (come "Condividi con sviluppatore" di Log Error).
@@ -11,7 +9,7 @@ type AssistenzaFields = { Name?: string; Notes?: string; Device?: string };
  */
 export async function sendReportToDeveloper(note?: string) {
   const entries = getLog();
-  await createRecord<AssistenzaFields>('Assistenza', {
+  await api('/assistenza', {
     Name: getEmployeeName() ?? 'Non registrato',
     Notes: note ? `${note}\n\n${entries.join('\n')}` : entries.join('\n'),
     Device: DEVICE,

@@ -1,10 +1,10 @@
 import * as Location from 'expo-location';
 
-import { GEOCODE_API_KEY } from '@/config';
+import { api } from '@/lib/api';
 import { log } from '@/lib/log';
 
 // Posizione GPS per i locali con GPS = "yes". [miglioria] La posizione si legge al momento della
-// timbratura (l'originale la leggeva solo nella Splash). L'indirizzo arriva da geocode.maps.co.
+// timbratura (l'originale la leggeva solo nella Splash). L'indirizzo arriva da geocode.maps.co tramite il proxy.
 
 /** Chiede il permesso (Splash). Restituisce true se concesso. */
 export async function requestLocationPermission() {
@@ -20,12 +20,10 @@ export async function requestLocationPermission() {
 
 /** Indirizzo dalle coordinate, nel formato salvato oggi su Airtable (display_name). */
 async function reverseGeocode(latitude: number, longitude: number) {
-  const url = `https://geocode.maps.co/reverse?lat=${latitude}&lon=${longitude}&api_key=${GEOCODE_API_KEY}`;
   try {
-    const response = await fetch(url);
-    const text = await response.text();
-    const data = JSON.parse(text) as { display_name?: string };
-    return data.display_name ?? `Indirizzo non riconosciuto: ${text}`;
+    // Tramite il proxy (la chiave di geocode.maps.co resta sul server, SPEC §18).
+    const { address } = await api<{ address: string }>('/geocode', { lat: latitude, lon: longitude });
+    return address;
   } catch (error) {
     // Se l'indirizzo non arriva si salvano almeno le coordinate.
     log(`Geocode: ${String(error)}`);
