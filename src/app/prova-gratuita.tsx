@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import {
   Alert,
@@ -21,7 +22,6 @@ import { EULA_URL, PRIVACY_URL, WHATSAPP_SUPPORT_URL } from '@/config';
 import { findFirst, formulaString } from '@/lib/airtable';
 import { LOCALI_TABLE, type LocaleFields } from '@/lib/locali';
 import { log } from '@/lib/log';
-import { updateSession } from '@/lib/session';
 import { saveManagerCredentials } from '@/lib/storage';
 import {
   activateLocale,
@@ -121,17 +121,6 @@ export default function ProvaGratuitaScreen() {
     await activate(company);
   };
 
-  const enter = async () => {
-    if (!done?.locale.Locale) return;
-    if (done.written === false) {
-      // Prova senza scritture: la tabella è quella vera (vuota) di un futuro cliente, l'area manager ci scriverebbe.
-      Alert.alert('Acquisto di prova', 'Con un acquisto di prova non si entra nell’area manager.');
-      return;
-    }
-    updateSession({ manager: done.locale });
-    router.replace('/calendario');
-  };
-
   if (done) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -159,21 +148,25 @@ export default function ProvaGratuitaScreen() {
               {done.password}
             </Text>
           </View>
-          <Text style={styles.small}>
-            Con questi dati (o con la tua mail) accedi al Registro Online dall’app e dal sito www.teamtimeapp.it.
-          </Text>
-          <AppButton title="Entra nell'area manager" onPress={enter} style={styles.button} />
-          {/* [develop 14/10/2026] Il titolare può provare subito l'app come farà un suo dipendente. */}
+          {/* [develop 14/10/2026] Niente bottone per l'area manager: si entra dal Registro Online (credenziali già
+              ricordate). Il bottone che resta porta a provare lo scan come un dipendente. */}
+          <View style={styles.hint}>
+            <SymbolView
+              name={{ ios: 'calendar.badge.clock', android: 'event_note' }}
+              tintColor={colors.primary}
+              size={26}
+            />
+            <Text style={styles.hintText}>
+              Puoi accedere in qualsiasi momento all&apos;area manager dalla scheda{' '}
+              <Text style={styles.bold}>Registro Online</Text> nel menu in basso, con questi dati (o con la tua mail).
+              Gli stessi dati valgono anche sul sito www.teamtimeapp.it.
+            </Text>
+          </View>
           <Text style={styles.subheading}>Prova l&apos;app</Text>
           <Text style={styles.small}>
-            Registrati come dipendente della tua azienda e fai la tua prima timbratura con il QR Code.
+            Registrati come dipendente della tua azienda e registra la tua prima presenza con il QR Code.
           </Text>
-          <AppButton
-            title="Registrati come Dipendente"
-            variant="outline"
-            onPress={() => router.replace('/accesso')}
-            style={styles.button}
-          />
+          <AppButton title="Prova lo Scan del QR Code" onPress={() => router.replace('/accesso')} style={styles.button} />
         </ScrollView>
       </SafeAreaView>
     );
@@ -280,6 +273,15 @@ const styles = StyleSheet.create({
   small: { textAlign: 'center', color: colors.muted, fontSize: 13, lineHeight: 19 },
   link: { color: colors.primary, textDecorationLine: 'underline' },
   bold: { fontWeight: '700', color: colors.text },
+  hint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.md,
+  },
+  hintText: { flex: 1, color: colors.text, fontSize: 14, lineHeight: 20 },
   card: { backgroundColor: colors.surface, borderRadius: radius.card, padding: spacing.md, gap: spacing.xs },
   label: { color: colors.muted, fontSize: 14 },
   value: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: spacing.sm },
