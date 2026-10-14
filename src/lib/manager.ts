@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import { formatTime } from '@/lib/activities';
 import { createRecord, findFirst, formulaString, listRecords, updateRecord, type AirtableRecord } from '@/lib/airtable';
 import { LOCALI_TABLE, type LocaleFields } from '@/lib/locali';
+import { storeMethod, syncSubscription } from '@/lib/subscription';
 
 // Registro Online e area manager (SPEC §7 e §8), con gli stessi formati del portale web.
 
@@ -13,9 +14,13 @@ export const LOGIN_MESSAGES = {
   notFound: 'Azienda non trovata (il sistema riconosce la differenza tra maiuscole e minuscole)',
   wrongPassword: 'Password incorretta',
   disabled: "Questo account risulta disattivato, contattare l'assistenza",
+  expired: 'Il tuo abbonamento è scaduto. Rinnovalo per tornare a usare TeamTime.',
 };
 
-export type LoginResult = { ok: true; locale: LocaleFields } | { ok: false; message: string };
+export type LoginResult =
+  | { ok: true; locale: LocaleFields }
+  /** `renew`: locale che paga dagli store con l'abbonamento scaduto, si può rinnovare dall'app. */
+  | { ok: false; message: string; renew?: LocaleFields };
 
 /**
  * Login del manager con il nome del QR (sensibile alle maiuscole, come Thunkable) oppure con la Mail
@@ -31,7 +36,15 @@ export async function loginManager(username: string, password: string): Promise<
   if (String(record.fields.Password ?? '').trim() !== password.trim()) {
     return { ok: false, message: LOGIN_MESSAGES.wrongPassword };
   }
-  if (record.fields.Status !== 'Attivo') return { ok: false, message: LOGIN_MESSAGES.disabled };
+  if (record.fields.Status !== 'Attivo') {
+    // Abbonamento dagli store: lo stato si rilegge da RevenueCat (potrebbe essere stato rinnovato dallo store).
+    if (storeMethod(record.fields)) {
+      const synced = await syncSubscription(record.fields);
+      if (synced?.Status === 'Attivo') return { ok: true, locale: synced };
+      return { ok: false, message: LOGIN_MESSAGES.expired, renew: record.fields };
+    }
+    return { ok: false, message: LOGIN_MESSAGES.disabled };
+  }
   return { ok: true, locale: record.fields };
 }
 

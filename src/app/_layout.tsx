@@ -3,7 +3,11 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { configurePurchases } from '@/lib/subscription';
 import { colors } from '@/theme';
+
+// Abbonamento in-app (RevenueCat): configurato una volta all'avvio.
+configurePurchases();
 
 export default function RootLayout() {
   return (
@@ -18,6 +22,7 @@ export default function RootLayout() {
         <Stack.Screen name="informativa-cookie" />
         <Stack.Screen name="primi-passi" options={{ animation: 'fade' }} />
         <Stack.Screen name="registra-azienda" />
+        <Stack.Screen name="prova-gratuita" />
         <Stack.Screen name="(manager)" options={{ gestureEnabled: false }} />
       </Stack>
     </GestureHandlerRootView>

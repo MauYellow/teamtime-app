@@ -20,6 +20,8 @@ import { LogoHeader } from '@/components/LogoHeader';
 import { DATA_REMOVAL_FORM_URL } from '@/config';
 import { log } from '@/lib/log';
 import { loginManager } from '@/lib/manager';
+import type { LocaleFields } from '@/lib/locali';
+import { renewSubscription } from '@/lib/subscription';
 import { updateSession } from '@/lib/session';
 import { clearManagerCredentials, getManagerCredentials, saveManagerCredentials } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
@@ -31,6 +33,8 @@ export default function RegistroScreen() {
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Locale con l'abbonamento dagli store scaduto: mostra "Rinnova abbonamento". */
+  const [renewable, setRenewable] = useState<LocaleFields | null>(null);
 
   // Credenziali ricordate ("Ricorda dati"), anche quelle migrate dalla vecchia app.
   useFocusEffect(
@@ -56,12 +60,14 @@ export default function RegistroScreen() {
       return;
     }
     setError(null);
+    setRenewable(null);
     setLoading(true);
     try {
       const result = await loginManager(username, password);
       if (!result.ok) {
         log(`Registro Online: accesso negato per ${username.trim()} (${result.message})`);
         setError(result.message);
+        setRenewable(result.renew ?? null);
         return;
       }
       if (remember) await saveManagerCredentials(username.trim(), password);
@@ -72,6 +78,23 @@ export default function RegistroScreen() {
     } catch (err) {
       log(`Registro Online: errore ${String(err)}`);
       setError('Connessione scarsa o assente. Riprovare fra pochi minuti.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renew = async () => {
+    if (!renewable) return;
+    setLoading(true);
+    try {
+      const locale = await renewSubscription(renewable);
+      if (locale?.Status !== 'Attivo') return;
+      log(`Registro Online: abbonamento rinnovato ${locale.Locale}`);
+      setError(null);
+      setRenewable(null);
+      if (remember) await saveManagerCredentials(username.trim(), password);
+      updateSession({ manager: locale });
+      router.push('/calendario');
     } finally {
       setLoading(false);
     }
@@ -111,6 +134,9 @@ export default function RegistroScreen() {
           <Pressable onPress={() => router.push('/tutorial')} accessibilityRole="link">
             <Text style={styles.link}>La tua azienda non è ancora registrata?</Text>
           </Pressable>
+          <Pressable onPress={() => router.push('/prova-gratuita')} accessibilityRole="link">
+            <Text style={styles.link}>Non hai un account? Prova gratis 30 giorni</Text>
+          </Pressable>
           <View style={styles.switchRow}>
             <Text style={styles.switchLabel}>Ricorda dati</Text>
             <Switch
@@ -120,6 +146,7 @@ export default function RegistroScreen() {
             />
           </View>
           {error && <Text style={styles.error}>{error}</Text>}
+          {renewable && <AppButton title="Rinnova abbonamento" onPress={renew} loading={loading} />}
           <AppButton title="Accedi" onPress={login} loading={loading} style={styles.button} />
           <Text style={styles.small}>
             Accettando dichiaro di aver letto e compreso l&apos;

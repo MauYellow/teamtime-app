@@ -24,6 +24,7 @@ cp .env.example .env     # poi inserisci i valori in .env
 | `EXPO_PUBLIC_GEOCODE_API_KEY` | chiave geocode.maps.co (indirizzo del GPS) |
 | `EXPO_PUBLIC_BREVO_API_KEY` | chiave Brevo (registrazione azienda) |
 | `EXPO_PUBLIC_TELEGRAM_BOT_KEY` / `EXPO_PUBLIC_TELEGRAM_CHANNEL_ID` | log su Telegram |
+| `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | chiavi pubbliche RevenueCat (abbonamento in-app) |
 
 Le variabili `EXPO_PUBLIC_*` finiscono dentro l'app (come le chiavi nell'app Thunkable). Le altre (es. password di prova)
 restano sul PC.
@@ -79,11 +80,11 @@ Valori che possono cambiare: `src/config.ts`.
 `ios/` e `android/` sono generate (Continuous Native Generation): non modificarle a mano, si configura tutto in `app.json`.
 
 ## Prima della pubblicazione (checklist)
-- [ ] **Prima della prossima build (richiesta dell'utente, 12/10/2026): ricordarglielo.** In area manager → Impostazioni
-      aggiungere GPS e Intercambio (attivabili/disattivabili) **solo** per chi ha l'abbonamento dagli store; chi paga
-      con Stripe non li può cambiare (paga di più). Vedi SPEC §17.
-- [ ] Con l'acquisto in-app: scrivere "Apple" o "Android" nella colonna `Metodo di pagamento` (creata il 12/10/2026).
-      L'app non scrive mai "Stripe" e non tocca le righe/il flusso Stripe (vincolo dell'utente). Vedi SPEC §17.
+- [x] GPS e Intercambio nelle Impostazioni solo per chi ha l'abbonamento dagli store; "Apple"/"Android" in
+      `Metodo di pagamento` all'acquisto. L'app non scrive mai "Stripe" e non tocca il flusso Stripe (SPEC §17).
+- [ ] Abbonamento in-app: provare con una development build (acquisto sandbox = nessuna scrittura su Airtable, solo
+      Telegram). Su Android gli acquisti funzionano solo con il pacchetto vero (`APP_VARIANT=production`) e un account
+      tra i tester delle licenze.
 - [x] Package Android `com.gmail.mauriziopolverini89.teamtime` e `versionCode` 93 in `app.json` (Thunkable in produzione:
       versionCode 92, versione 3.001, 12/10/2026). A ogni nuova build per lo store alzare `versionCode` di 1.
 - [x] Bundle id iOS uguale al package Android (`com.gmail.mauriziopolverini89.teamtime`). Numero di build iOS: non

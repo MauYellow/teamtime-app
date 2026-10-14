@@ -41,10 +41,20 @@ export default function PrimiPassiScreen() {
         <LottieView key={page} source={current.animation} autoPlay loop style={styles.animation} />
         <Text style={styles.text}>{current.text}</Text>
         <View style={styles.actions}>
-          <AppButton
-            title={last ? 'Registrati Ora' : 'Continua'}
-            onPress={() => (last ? router.replace('/registra-azienda') : setPage(page + 1))}
-          />
+          {last ? (
+            <>
+              {/* [develop 14/10/2026] "Come vuoi iniziare?": prova gratuita dall'app (SPEC §17) o modulo di contatto. */}
+              <AppButton title="Prova gratis 30 giorni" onPress={() => router.replace('/prova-gratuita')} />
+              <AppButton
+                title="Preferisco essere contattato"
+                variant="outline"
+                onPress={() => router.replace('/registra-azienda')}
+                style={styles.secondButton}
+              />
+            </>
+          ) : (
+            <AppButton title="Continua" onPress={() => setPage(page + 1)} />
+          )}
         </View>
         <Text style={styles.pageNumber}>
           Pagina {page + 1}/{PAGES.length}
@@ -61,4 +71,5 @@ const styles = StyleSheet.create({
   text: { fontSize: 17, lineHeight: 24, color: colors.text, textAlign: 'center' },
   actions: { alignSelf: 'stretch', marginTop: spacing.sm },
   pageNumber: { color: colors.muted, fontSize: 13 },
+  secondButton: { marginTop: spacing.sm },
 });

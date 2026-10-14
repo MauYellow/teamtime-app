@@ -6,7 +6,8 @@ import type { ColorValue } from 'react-native';
 
 import { loadManagerData } from '@/lib/managerData';
 import { ensureDefaultPreferences } from '@/lib/preferences';
-import { useSession } from '@/lib/session';
+import { syncSubscription } from '@/lib/subscription';
+import { getSession, useSession } from '@/lib/session';
 import { colors } from '@/theme';
 
 type IconName = SymbolViewProps['name'];
@@ -29,6 +30,7 @@ export default function ManagerLayout() {
     if (!table) return;
     loadManagerData(table);
     ensureDefaultPreferences(table);
+    syncSubscription(getSession().manager);
   }, [table]);
 
   if (!manager) return <Redirect href="/registro" />;

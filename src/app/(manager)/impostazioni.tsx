@@ -8,10 +8,11 @@ import { ManagerExit } from '@/components/ManagerExit';
 import { SectionHeader } from '@/components/SectionHeader';
 import { findFirst, formulaString, updateRecord, type AirtableRecord } from '@/lib/airtable';
 import { writeCache } from '@/lib/cache';
-import { LOCALI_TABLE, localeCacheKey, type LocaleFields } from '@/lib/locali';
+import { isYes, LOCALI_TABLE, localeCacheKey, type LocaleFields } from '@/lib/locali';
 import { log } from '@/lib/log';
 import { localePreferences, type LocalePreferences } from '@/lib/preferences';
 import { getSession, updateSession, useSession } from '@/lib/session';
+import { storeMethod } from '@/lib/subscription';
 import { colors, radius, spacing } from '@/theme';
 
 // Area manager → Impostazioni (SPEC §16): rappresentano il JSON della colonna "Impostazioni" di Locali Approvati del
@@ -23,6 +24,9 @@ export default function ImpostazioniScreen() {
   const [preferences, setPreferences] = useState<LocalePreferences | null>(null);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** GPS e Intercambio del locale (Locali Approvati). Modificabili solo con l'abbonamento dagli store (SPEC §17). */
+  const [features, setFeatures] = useState({ gps: false, intercambio: false });
+  const featuresEditable = !!storeMethod(record?.fields);
   const canSave = !!locale;
 
   useEffect(() => {
@@ -32,6 +36,7 @@ export default function ImpostazioniScreen() {
       .then((found) => {
         if (cancelled) return;
         setRecord(found);
+        setFeatures({ gps: isYes(found?.fields.GPS), intercambio: isYes(found?.fields.Intercambio) });
         setPreferences(localePreferences(found?.fields ?? null));
       })
       .catch((error) => {
@@ -52,7 +57,12 @@ export default function ImpostazioniScreen() {
     try {
       const updated = await updateRecord<LocaleFields>(LOCALI_TABLE, record.id, {
         Impostazioni: JSON.stringify(preferences),
+        // Solo per chi paga dagli store: i clienti Stripe pagano GPS e Intercambio a parte, qui non si toccano.
+        ...(featuresEditable
+          ? { GPS: features.gps ? 'yes' : 'no', Intercambio: features.intercambio ? 'yes' : 'no' }
+          : {}),
       });
+      setRecord(updated);
       // Sessione aggiornata subito: area manager e, se è anche il locale del dipendente su questo telefono, Gestisci.
       const sameAsEmployee = getSession().locale?.Locale === locale;
       updateSession(sameAsEmployee ? { manager: updated.fields, locale: updated.fields } : { manager: updated.fields });
@@ -119,6 +129,33 @@ export default function ImpostazioniScreen() {
               onChange={(value) => change({ oreMaxTurno: value })}
               disabled={!canSave || !preferences.correzioneUscite}
             />
+
+            <SectionHeader title="Funzioni del piano" style={styles.sectionSpacing} />
+            <SettingSwitch
+              label="GPS: posizione registrata a ogni timbratura"
+              info={
+                'Se attivo, a ogni entrata e uscita l’app registra la posizione del dipendente (l’indirizzo compare nel ' +
+                'registro). Il dipendente deve dare il permesso alla posizione.'
+              }
+              value={features.gps}
+              onChange={(value) => setFeatures((current) => ({ ...current, gps: value }))}
+              disabled={!canSave || !featuresEditable}
+            />
+            <SettingSwitch
+              label="Intercambio: timbrare anche con il QR di altri locali"
+              info={
+                'Se attivo, i tuoi dipendenti possono timbrare anche scansionando il QR Code di un altro locale ' +
+                'TeamTime (per esempio un’altra sede): la presenza viene registrata nel registro di quel locale.'
+              }
+              value={features.intercambio}
+              onChange={(value) => setFeatures((current) => ({ ...current, intercambio: value }))}
+              disabled={!canSave || !featuresEditable}
+            />
+            {!featuresEditable && (
+              <Text style={styles.note}>
+                GPS e Intercambio fanno parte del piano acquistato dal sito: per cambiarli contatta l&apos;assistenza.
+              </Text>
+            )}
 
             <SectionHeader title="Ferie e permessi" style={styles.sectionSpacing} />
             <SettingSwitch
@@ -230,6 +267,7 @@ const styles = StyleSheet.create({
   muted: { color: colors.muted, textAlign: 'center', padding: spacing.lg },
   loader: { marginVertical: spacing.lg },
   sectionSpacing: { marginTop: spacing.md },
+  note: { color: colors.muted, fontSize: 13, paddingHorizontal: spacing.sm, marginTop: spacing.xs },
   setting: {
     flexDirection: 'row',
     alignItems: 'center',

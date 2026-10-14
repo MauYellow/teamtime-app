@@ -21,6 +21,15 @@ export type LocaleFields = {
   'Ragione Sociale'?: string;
   /** Impostazioni del locale in JSON (vedi lib/preferences.ts). */
   Impostazioni?: string;
+  Telefono?: string;
+  'Partita IVA'?: string;
+  Indirizzo?: string;
+  'Primo Accesso'?: string;
+  'Link Annullamento'?: string;
+  Referral?: string;
+  'QR Code PDF'?: { url: string }[];
+  /** "Apple" / "Android" (acquisto in-app) o "Stripe" (portale). Colonna creata dall'utente il 12/10/2026. */
+  'Metodo di pagamento'?: string;
 };
 
 /** I campi GPS e Intercambio contengono valori misti ("yes", "no", "No GPS"...): attivo solo se "yes". */

@@ -2,13 +2,14 @@ import { SymbolView } from 'expo-symbols';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ManagerExit } from '@/components/ManagerExit';
-
+import { AppButton } from '@/components/AppButton';
 import { LogoHeader } from '@/components/LogoHeader';
+import { ManagerExit } from '@/components/ManagerExit';
 import { EULA_URL, PRIVACY_URL } from '@/config';
 import { isYes } from '@/lib/locali';
 import { log } from '@/lib/log';
 import { useSession } from '@/lib/session';
+import { managementUrl, storeMethod } from '@/lib/subscription';
 import { colors, radius, spacing } from '@/theme';
 
 const MAX_ROWS_INFO =
@@ -40,6 +41,7 @@ type Row = { label: string; value: string | null | undefined; info?: string };
 // "Il tuo piano" (SPEC §8): dati dell'abbonamento del locale, senza acquisti.
 export default function PianoScreen() {
   const { manager } = useSession();
+  const method = storeMethod(manager);
   // "Fine prova" solo se l'abbonamento non risulta pagato (il portale la compila all'inizio della prova e la lascia).
   const trialEnd = isPaid(manager?.Pagato) ? null : italianDate(manager?.['Fine Prova']);
   const rows: Row[] = [
@@ -47,6 +49,7 @@ export default function PianoScreen() {
     { label: 'Nome QR Code', value: manager?.Locale },
     { label: 'Stato', value: manager?.Status },
     { label: 'Pagato', value: manager?.Pagato },
+    { label: 'Metodo di pagamento', value: manager?.['Metodo di pagamento'] },
     { label: 'Fine prova', value: trialEnd },
     { label: 'GPS', value: isYes(manager?.GPS) ? 'Attivo' : 'Non attivo' },
     { label: 'Intercambio', value: isYes(manager?.Intercambio) ? 'Attivo' : 'Non attivo' },
@@ -86,7 +89,23 @@ export default function PianoScreen() {
             ))}
         </View>
 
-        <Text style={styles.note}>Puoi disdire il tuo abbonamento in qualsiasi momento.</Text>
+        {method ? (
+          <>
+            {/* [develop 14/10/2026] Abbonamento dagli store: si gestisce e si disdice dallo store. */}
+            <AppButton
+              title="Gestisci abbonamento"
+              variant="outline"
+              onPress={async () => open(await managementUrl(manager))}
+            />
+            <Text style={styles.note}>
+              Puoi disdire il tuo abbonamento in qualsiasi momento dalle impostazioni degli abbonamenti{' '}
+              {method === 'Apple' ? 'del tuo ID Apple' : 'di Google Play'}: resta attivo fino alla fine del periodo già
+              pagato.
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.note}>Puoi disdire il tuo abbonamento in qualsiasi momento.</Text>
+        )}
         <Text style={styles.legal}>
           Usando TeamTime accetti i{' '}
           <Text style={styles.link} onPress={() => open(EULA_URL)} accessibilityRole="link">

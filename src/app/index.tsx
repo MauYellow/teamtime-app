@@ -12,6 +12,7 @@ import { fetchLocale, isYes, localeCacheKey } from '@/lib/locali';
 import { requestLocationPermission } from '@/lib/location';
 import { log } from '@/lib/log';
 import { updateSession } from '@/lib/session';
+import { syncSubscription } from '@/lib/subscription';
 import { fetchAppSettings, type AppSettings } from '@/lib/settings';
 import { getEmployeeLocale, getEmployeeName, isFirstAccess } from '@/lib/storage';
 import { openStorePage } from '@/lib/store';
@@ -100,6 +101,8 @@ export default function SplashScreen() {
           // Un locale non trovato non si ricorda: al prossimo avvio si riprova.
           if (!locale) removeCache(key);
           updateSession({ locale });
+          // Locali che pagano dagli store: stato dell'abbonamento aggiornato su Airtable (senza aspettare).
+          syncSubscription(locale);
           log(locale ? `Locale riconosciuto: ${localeName}` : `Locale ${localeName} non trovato in Locali Approvati`);
           if (isYes(locale?.GPS)) await requestLocationPermission();
         }
