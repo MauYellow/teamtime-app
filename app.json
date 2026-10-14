@@ -52,7 +52,15 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-sharing",
-      "expo-mail-composer"
+      "expo-mail-composer",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://de.sentry.io/",
+          "organization": "teamtime-registro-presenze",
+          "project": "teamtime"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -22,6 +22,7 @@ import { EULA_URL, PRIVACY_URL, WHATSAPP_SUPPORT_URL } from '@/config';
 import { findFirst, formulaString } from '@/lib/airtable';
 import { LOCALI_TABLE, type LocaleFields } from '@/lib/locali';
 import { log } from '@/lib/log';
+import { reportError } from '@/lib/sentry';
 import { saveManagerCredentials } from '@/lib/storage';
 import {
   activateLocale,
@@ -77,6 +78,7 @@ export default function ProvaGratuitaScreen() {
       setDone(result);
     } catch (err) {
       log(`Prova gratuita: attivazione non riuscita ${String(err)}`);
+      reportError(err, 'activateLocale');
       setPending(getPendingActivation());
       Alert.alert(
         'Attivazione non completata',

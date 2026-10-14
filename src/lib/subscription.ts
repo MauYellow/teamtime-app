@@ -19,6 +19,7 @@ import { DEVICE } from '@/lib/device';
 import { LOCALI_TABLE, localeCacheKey, type LocaleFields } from '@/lib/locali';
 import { log } from '@/lib/log';
 import { DEFAULT_PREFERENCES } from '@/lib/preferences';
+import { reportError } from '@/lib/sentry';
 import { getSession, updateSession } from '@/lib/session';
 import { sendTelegram } from '@/lib/telegram';
 
@@ -136,6 +137,7 @@ export async function showPaywall(): Promise<PaywallOutcome> {
     return activeEntitlement(info) ? { purchased: true, info } : { purchased: false, error: true };
   } catch (error) {
     log(`Paywall: errore ${String(error)}`);
+    reportError(error, 'paywall');
     return { purchased: false, error: true };
   }
 }
@@ -436,6 +438,7 @@ export async function syncSubscription(locale: LocaleFields | null | undefined):
     return updated.fields;
   } catch (error) {
     log(`Abbonamento ${table}: controllo non riuscito ${String(error)}`);
+    reportError(error, 'syncSubscription');
     return null;
   }
 }

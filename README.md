@@ -25,6 +25,7 @@ cp .env.example .env     # poi inserisci i valori in .env
 | `EXPO_PUBLIC_BREVO_API_KEY` | chiave Brevo (registrazione azienda) |
 | `EXPO_PUBLIC_TELEGRAM_BOT_KEY` / `EXPO_PUBLIC_TELEGRAM_CHANNEL_ID` | log su Telegram |
 | `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | chiavi pubbliche RevenueCat (abbonamento in-app) |
+| `EXPO_PUBLIC_SENTRY_DSN` | Sentry, errori e crash (regione UE; senza, Sentry è spento) |
 
 Le variabili `EXPO_PUBLIC_*` finiscono dentro l'app (come le chiavi nell'app Thunkable). Le altre (es. password di prova)
 restano sul PC.
@@ -96,6 +97,9 @@ Valori che possono cambiare: `src/config.ts`.
       Console il prezzo finale dell'Italia dei tre abbonamenti (SPEC §17).
 - [x] GPS e Intercambio nelle Impostazioni solo per chi ha l'abbonamento dagli store; "Apple"/"Android" in
       `Metodo di pagamento` all'acquisto. L'app non scrive mai "Stripe" e non tocca il flusso Stripe (SPEC §17).
+- [ ] **Sentry:** provarlo con il nuovo APK (un errore deve comparire su sentry.io); per la build di produzione creare
+      un Auth Token Sentry e metterlo su expo.dev come `SENTRY_AUTH_TOKEN` (mai nel repository); aggiungere
+      nell'informativa privacy che gli errori tecnici anonimi sono raccolti con Sentry.
 - [ ] **Da testare (14/10/2026): paywall RevenueCat** sistemato dall'utente (testi in italiano, vantaggi, bottoni).
 - [ ] **Da testare (14/10/2026):** pagina "Benvenuto in TeamTime!" dopo la prova gratuita (testi, riquadro Registro
       Online con icona, "Prova lo Scan del QR Code" → Accessi, credenziali già compilate nel Registro Online).
