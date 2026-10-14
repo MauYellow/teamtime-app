@@ -1,4 +1,5 @@
 import { AIRTABLE_BASE_ID, AIRTABLE_TOKEN } from '@/config';
+import { reportError } from '@/lib/sentry';
 
 // Client minimo per la base Airtable "Presenze" (REST API v0).
 
@@ -32,6 +33,16 @@ function tableUrl(table: string) {
   return `${API}/${encodeURIComponent(table)}`;
 }
 
+/** Tipo dell'errore Airtable dalla risposta ({"error":{"type":"..."}}), senza il messaggio. */
+function airtableErrorType(text: string) {
+  try {
+    const body = JSON.parse(text);
+    return String(body?.error?.type ?? body?.error ?? '');
+  } catch {
+    return '';
+  }
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   if (!AIRTABLE_TOKEN) throw new AirtableError('Manca EXPO_PUBLIC_AIRTABLE_TOKEN in .env');
   let response: Response;
@@ -48,7 +59,13 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     throw new AirtableError(`Connessione non riuscita: ${String(error)}`);
   }
   const text = await response.text();
-  if (!response.ok) throw new AirtableError(`Airtable HTTP ${response.status}: ${text}`, response.status);
+  if (!response.ok) {
+    const error = new AirtableError(`Airtable HTTP ${response.status}: ${text}`, response.status);
+    // A Sentry solo codice e tipo dell'errore (es. "HTTP 422 INVALID_FILTER_BY_FORMULA"), mai il testo completo, che
+    // può contenere nomi e valori. Le connessioni mancanti (telefono offline) non si segnalano: non sono errori dell'app.
+    reportError(new Error(`Airtable HTTP ${response.status} ${airtableErrorType(text)}`), 'airtable');
+    throw error;
+  }
   return JSON.parse(text) as T;
 }
 
