@@ -88,6 +88,9 @@ Valori che possono cambiare: `src/config.ts`.
 `ios/` e `android/` sono generate (Continuous Native Generation): non modificarle a mano, si configura tutto in `app.json`.
 
 ## Prima della pubblicazione (checklist)
+- [ ] Variabili `EXPO_PUBLIC_*` per le build EAS `preview`/`production`: `.env` non viene caricato su EAS (è escluso da
+      git), quindi vanno create su expo.dev (ambiente `production`, `eas env:list --environment production` per
+      controllare). Le development build non ne hanno bisogno: il JavaScript arriva da Metro sul PC, che legge `.env`.
 - [x] GPS e Intercambio nelle Impostazioni solo per chi ha l'abbonamento dagli store; "Apple"/"Android" in
       `Metodo di pagamento` all'acquisto. L'app non scrive mai "Stripe" e non tocca il flusso Stripe (SPEC §17).
 - [ ] Abbonamento in-app: provare con una development build (acquisto sandbox = nessuna scrittura su Airtable, solo
