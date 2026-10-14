@@ -10,6 +10,7 @@ const KEYS = {
   firstAccess: 'primoAccesso', // 'false' dopo la prima apertura di Accesso Dipendenti
   reviewScans: 'scanPerRecensione', // scansioni riuscite dall'ultima richiesta di recensione
   reviewDone: 'recensioneFatta', // 'true' dopo "Ok": non si chiede più
+  reviewLogins: 'accessiPerRecensione', // accessi riusciti al Registro Online dall'ultima richiesta di recensione
 } as const;
 
 const SECURE_KEYS = {
@@ -96,6 +97,14 @@ export function getReviewScans() {
 
 export function setReviewScans(value: number) {
   Storage.setItemSync(KEYS.reviewScans, String(value));
+}
+
+export function getReviewLogins() {
+  return Number(read(KEYS.reviewLogins)) || 0;
+}
+
+export function setReviewLogins(value: number) {
+  Storage.setItemSync(KEYS.reviewLogins, String(value));
 }
 
 export function isReviewDone() {

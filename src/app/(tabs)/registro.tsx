@@ -18,6 +18,7 @@ import { LogoHeader } from '@/components/LogoHeader';
 import { DATA_REMOVAL_FORM_URL } from '@/config';
 import { log } from '@/lib/log';
 import { loginManager } from '@/lib/manager';
+import { askReview, countManagerLoginForReview, shouldAskReview } from '@/lib/review';
 import type { LocaleFields } from '@/lib/locali';
 import { renewSubscription } from '@/lib/subscription';
 import { updateSession } from '@/lib/session';
@@ -73,6 +74,9 @@ export default function RegistroScreen() {
       log(`Registro Online: accesso effettuato ${result.locale.Locale}`);
       updateSession({ manager: result.locale });
       router.push('/calendario');
+      // Richiesta di recensione ogni 10 accessi (SPEC §4), sopra il calendario appena aperto.
+      countManagerLoginForReview();
+      if (shouldAskReview()) setTimeout(askReview, 800);
     } catch (err) {
       log(`Registro Online: errore ${String(err)}`);
       setError('Connessione scarsa o assente. Riprovare fra pochi minuti.');

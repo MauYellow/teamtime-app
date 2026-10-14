@@ -1,12 +1,26 @@
 import { Alert, Linking, Platform } from 'react-native';
 
-import { ANDROID_PACKAGE, ASSISTANCE_FORM_URL, IOS_APP_STORE_ID, REVIEW_EVERY_SCANS } from '@/config';
+import {
+  ANDROID_PACKAGE,
+  ASSISTANCE_FORM_URL,
+  IOS_APP_STORE_ID,
+  REVIEW_EVERY_MANAGER_LOGINS,
+  REVIEW_EVERY_SCANS,
+} from '@/config';
 import { log } from '@/lib/log';
-import { getReviewScans, isReviewDone, setReviewDone, setReviewScans } from '@/lib/storage';
+import {
+  getReviewLogins,
+  getReviewScans,
+  isReviewDone,
+  setReviewDone,
+  setReviewLogins,
+  setReviewScans,
+} from '@/lib/storage';
 
 // Richiesta di recensione ogni REVIEW_EVERY_SCANS scansioni riuscite (entrate + uscite), decisione dell'utente.
 // "Recensisci" apre la pagina della recensione sullo store e non si chiede più; "Non ora" e "Segnala un problema"
-// ripartono da zero.
+// ripartono da zero. [develop 14/10/2026] Secondo contatore per i titolari: ogni REVIEW_EVERY_MANAGER_LOGINS accessi
+// riusciti al Registro Online (decisione dell'utente); la risposta azzera entrambi i contatori.
 // [miglioria] L'originale dopo 40 aperture mostrava un alert che obbligava a recensire (vietato dagli store).
 
 /** Da chiamare dopo ogni timbratura registrata correttamente. */
@@ -17,8 +31,24 @@ export function countScanForReview() {
   log(`Recensione: timbrature ${count}/${REVIEW_EVERY_SCANS}`);
 }
 
+/** Da chiamare dopo ogni accesso riuscito al Registro Online. */
+export function countManagerLoginForReview() {
+  if (isReviewDone()) return;
+  const count = getReviewLogins() + 1;
+  setReviewLogins(count);
+  log(`Recensione: accessi al Registro Online ${count}/${REVIEW_EVERY_MANAGER_LOGINS}`);
+}
+
 export function shouldAskReview() {
-  return !isReviewDone() && getReviewScans() >= REVIEW_EVERY_SCANS;
+  return (
+    !isReviewDone() &&
+    (getReviewScans() >= REVIEW_EVERY_SCANS || getReviewLogins() >= REVIEW_EVERY_MANAGER_LOGINS)
+  );
+}
+
+function resetCounters() {
+  setReviewScans(0);
+  setReviewLogins(0);
 }
 
 function reviewUrl() {
@@ -41,8 +71,8 @@ async function open(url: string) {
  */
 export function askReview() {
   const later = () => {
-    log('Recensione: "Non ora", contatore azzerato');
-    setReviewScans(0);
+    log('Recensione: "Non ora", contatori azzerati');
+    resetCounters();
   };
   Alert.alert(
     'Ti piace TeamTime? ⭐⭐⭐⭐⭐',
@@ -52,7 +82,7 @@ export function askReview() {
         text: 'Segnala un problema',
         onPress: () => {
           log('Recensione: "Segnala un problema"');
-          setReviewScans(0);
+          resetCounters();
           open(ASSISTANCE_FORM_URL);
         },
       },
