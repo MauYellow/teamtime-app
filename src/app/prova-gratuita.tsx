@@ -218,10 +218,12 @@ export default function ProvaGratuitaScreen() {
             autoComplete="tel"
           />
           {error && <Text style={styles.error}>{error}</Text>}
-          <AppButton title="Scegli il piano" onPress={start} style={styles.button} />
+          <AppButton title="Inizia la Prova Gratuita di 30 Giorni" onPress={start} style={styles.button} />
           <Text style={styles.small}>
-            L’abbonamento si paga con il tuo account {Platform.OS === 'ios' ? 'Apple' : 'Google Play'} e si rinnova
-            ogni anno; puoi disdirlo in qualsiasi momento dalle impostazioni degli abbonamenti. Continuando accetti i{' '}
+            Oggi non paghi nulla. Al termine dei 30 giorni di prova inizierà l’abbonamento annuale al prezzo del piano
+            scelto, rinnovato automaticamente ogni anno. Puoi disdire quando vuoi, anche durante la prova, dalle
+            impostazioni degli abbonamenti del tuo account {Platform.OS === 'ios' ? 'Apple' : 'Google Play'}.
+            Continuando accetti i{' '}
             <Text style={styles.link} onPress={() => Linking.openURL(EULA_URL)} accessibilityRole="link">
               termini e condizioni (EULA)
             </Text>{' '}
