@@ -156,11 +156,11 @@ export default function RegistroScreen() {
           <Text style={styles.inlineLink} onPress={() => router.push('/informativa-cookie')} accessibilityRole="link">
             informativa sulla privacy
           </Text>
-          .{' '}
+          . Se vuoi richiedere la rimozione dei tuoi dati aziendali,{' '}
           <Text style={styles.inlineLink} onPress={() => Linking.openURL(DATA_REMOVAL_FORM_URL)} accessibilityRole="link">
-            Clicca qui
-          </Text>{' '}
-          se vuoi richiedere la rimozione dei tuoi dati aziendali.
+            clicca qui
+          </Text>
+          .
         </Text>
       </View>
     </SafeAreaView>

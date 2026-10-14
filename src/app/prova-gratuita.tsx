@@ -121,6 +121,11 @@ export default function ProvaGratuitaScreen() {
 
   const enter = async () => {
     if (!done?.locale.Locale) return;
+    if (done.test) {
+      // In prova la tabella è quella vera (vuota) di un futuro cliente: niente area manager, che ci scriverebbe.
+      Alert.alert('Acquisto di prova', 'Con un acquisto di prova non si entra nell’area manager.');
+      return;
+    }
     updateSession({ manager: done.locale });
     router.replace('/calendario');
   };
@@ -131,16 +136,15 @@ export default function ProvaGratuitaScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <LogoHeader variant="icon" />
           <Text style={styles.heading}>Benvenuto in TeamTime!</Text>
-          {done.test ? (
+          {done.test && (
             <Text style={styles.error}>
               Acquisto di prova (sandbox): nessuna scrittura su Airtable e nessuna mail. Il riepilogo è su Telegram.
             </Text>
-          ) : (
-            <Text style={styles.text}>
-              La tua prova gratuita è attiva. Riceverai una mail con i prossimi passi, la password e il QR Code da
-              stampare (controlla anche nella cartella spam).
-            </Text>
           )}
+          <Text style={styles.text}>
+            La tua prova gratuita è attiva. Riceverai una mail con i prossimi passi, la password e il QR Code da
+            stampare (controlla anche nella cartella spam).
+          </Text>
           <View style={styles.card}>
             <Text style={styles.label}>Nome QR Code</Text>
             <Text style={styles.value} selectable>
@@ -154,24 +158,18 @@ export default function ProvaGratuitaScreen() {
           <Text style={styles.small}>
             Con questi dati (o con la tua mail) accedi al Registro Online dall’app e dal sito www.teamtimeapp.it.
           </Text>
-          {done.test ? (
-            <AppButton title="Chiudi" onPress={() => router.back()} style={styles.button} />
-          ) : (
-            <>
-              <AppButton title="Entra nell'area manager" onPress={enter} style={styles.button} />
-              {/* [develop 14/10/2026] Il titolare può provare subito l'app come farà un suo dipendente. */}
-              <Text style={styles.subheading}>Prova l&apos;app</Text>
-              <Text style={styles.small}>
-                Registrati come dipendente della tua azienda e fai la tua prima timbratura con il QR Code.
-              </Text>
-              <AppButton
-                title="Registrati come Dipendente"
-                variant="outline"
-                onPress={() => router.replace('/accesso')}
-                style={styles.button}
-              />
-            </>
-          )}
+          <AppButton title="Entra nell'area manager" onPress={enter} style={styles.button} />
+          {/* [develop 14/10/2026] Il titolare può provare subito l'app come farà un suo dipendente. */}
+          <Text style={styles.subheading}>Prova l&apos;app</Text>
+          <Text style={styles.small}>
+            Registrati come dipendente della tua azienda e fai la tua prima timbratura con il QR Code.
+          </Text>
+          <AppButton
+            title="Registrati come Dipendente"
+            variant="outline"
+            onPress={() => router.replace('/accesso')}
+            style={styles.button}
+          />
         </ScrollView>
       </SafeAreaView>
     );
@@ -234,8 +232,8 @@ export default function ProvaGratuitaScreen() {
           {error && <Text style={styles.error}>{error}</Text>}
           <AppButton title="Inizia la Prova Gratuita di 30 Giorni" onPress={start} style={styles.button} />
           <Text style={styles.small}>
-            Oggi non paghi nulla. Al termine dei 30 giorni di prova inizierà l’abbonamento annuale al prezzo del piano
-            scelto, rinnovato automaticamente ogni anno. Puoi disdire quando vuoi, anche durante la prova, dalle
+            <Text style={styles.bold}>Oggi non paghi nulla.</Text> Al termine dei 30 giorni di prova inizierà
+            l’abbonamento annuale al prezzo del piano scelto, rinnovato automaticamente. Puoi disdire quando vuoi, anche durante la prova, dalle
             impostazioni degli abbonamenti del tuo account {Platform.OS === 'ios' ? 'Apple' : 'Google Play'}.
             Continuando accetti i{' '}
             <Text style={styles.link} onPress={() => Linking.openURL(EULA_URL)} accessibilityRole="link">
@@ -277,6 +275,7 @@ const styles = StyleSheet.create({
   button: { marginVertical: spacing.sm },
   small: { textAlign: 'center', color: colors.muted, fontSize: 13, lineHeight: 19 },
   link: { color: colors.primary, textDecorationLine: 'underline' },
+  bold: { fontWeight: '700', color: colors.text },
   card: { backgroundColor: colors.surface, borderRadius: radius.card, padding: spacing.md, gap: spacing.xs },
   label: { color: colors.muted, fontSize: 14 },
   value: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: spacing.sm },

@@ -91,6 +91,8 @@ Valori che possono cambiare: `src/config.ts`.
 - [ ] Variabili `EXPO_PUBLIC_*` per le build EAS `preview`/`production`: `.env` non viene caricato su EAS (è escluso da
       git), quindi vanno create su expo.dev (ambiente `production`, `eas env:list --environment production` per
       controllare). Le development build non ne hanno bisogno: il JavaScript arriva da Metro sul PC, che legge `.env`.
+- [ ] **Prezzi Android con l'IVA aggiunta** (Google aggiunge l'IVA al prezzo inserito, Apple no): correggere in Play
+      Console il prezzo finale dell'Italia dei tre abbonamenti (SPEC §17).
 - [x] GPS e Intercambio nelle Impostazioni solo per chi ha l'abbonamento dagli store; "Apple"/"Android" in
       `Metodo di pagamento` all'acquisto. L'app non scrive mai "Stripe" e non tocca il flusso Stripe (SPEC §17).
 - [ ] Abbonamento in-app: provare con una development build (acquisto sandbox = nessuna scrittura su Airtable, solo
