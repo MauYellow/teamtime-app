@@ -5,11 +5,20 @@ import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 import { ANDROID_PACKAGE, REVENUECAT_ANDROID_KEY, REVENUECAT_IOS_KEY, TELEGRAM_OWNER_TAG } from '@/config';
 import { formatTime } from '@/lib/activities';
-import { createRecord, findFirst, formulaString, listRecords, updateRecord, type AirtableRecord } from '@/lib/airtable';
+import {
+  createRecord,
+  deleteRecord,
+  findFirst,
+  formulaString,
+  listRecords,
+  updateRecord,
+  type AirtableRecord,
+} from '@/lib/airtable';
 import { writeCache } from '@/lib/cache';
 import { DEVICE } from '@/lib/device';
 import { LOCALI_TABLE, localeCacheKey, type LocaleFields } from '@/lib/locali';
 import { log } from '@/lib/log';
+import { DEFAULT_PREFERENCES } from '@/lib/preferences';
 import { getSession, updateSession } from '@/lib/session';
 import { sendTelegram } from '@/lib/telegram';
 
@@ -147,17 +156,72 @@ export async function startTrialPaywall(): Promise<PaywallOutcome> {
 
 // --- Attivazione del locale (come /start-airtable del portale) ---
 
-/** Prima tabella vuota tra teamtime021 e teamtime050 che ha la sua riga in Locali Approvati. */
+/**
+ * Tabella su cui scrive davvero un acquisto di prova (sandbox) fatto da una build di sviluppo, per provare tutto il
+ * percorso senza toccare le tabelle libere dei clienti. Scelta dall'utente il 14/10/2026; dopo ogni prova va
+ * ripristinata a mano (riga "Attivazione TeamTime" da cancellare, riga di Locali Approvati da rimettere com'era).
+ */
+const TEST_TABLE = 'teamtime037';
+
+async function isTableEmpty(table: string) {
+  const rows = await listRecords(table, { maxRecords: 1, fields: ['Nome'] });
+  return rows.length === 0;
+}
+
+/**
+ * Prenota la tabella scrivendo subito la prima riga "Attivazione TeamTime", come il portale: da quel momento non è più
+ * vuota e nessun altro (sito o app) la sceglie. Subito dopo controlla di essere stato l'unico: se nella tabella c'è
+ * un'altra riga (il sito l'ha presa nello stesso istante) cancella la propria e restituisce false.
+ */
+async function reserveTable(table: string) {
+  const now = formatTime(new Date());
+  const row = await createRecord(table, {
+    Nome: 'Attivazione TeamTime',
+    Entrata: now,
+    Uscita: now,
+    Device: DEVICE,
+    GPS: 'Privato',
+    'GPS Uscita': 'Privato',
+  });
+  try {
+    const rows = await listRecords(table, { maxRecords: 2, fields: ['Nome'] });
+    if (rows.length > 1) {
+      await deleteRecord(table, row.id);
+      log(`Abbonamento in-app: ${table} presa da qualcun altro nello stesso momento, si passa alla successiva`);
+      return false;
+    }
+  } catch (error) {
+    // Controllo non riuscito: la riga è scritta, la tabella resta prenotata.
+    log(`Abbonamento in-app: controllo di ${table} non riuscito ${String(error)}`);
+  }
+  return true;
+}
+
+/** Prima tabella vuota tra teamtime021 e teamtime050 con la sua riga in Locali Approvati, già prenotata. */
+async function reserveEmptyTable() {
+  for (let number = FIRST_TABLE; number <= LAST_TABLE; number++) {
+    const table = `teamtime0${String(number).padStart(2, '0')}`;
+    try {
+      if (!(await isTableEmpty(table))) continue;
+      const locale = await findFirst<LocaleFields>(LOCALI_TABLE, `{Locale} = ${formulaString(table)}`);
+      if (locale && (await reserveTable(table))) return locale;
+    } catch {
+      // Tabella che non esiste: si passa alla successiva, come il portale.
+    }
+  }
+  return null;
+}
+
+/** Prima tabella vuota, senza prenotarla (acquisti di prova che non scrivono). */
 async function findEmptyTable() {
   for (let number = FIRST_TABLE; number <= LAST_TABLE; number++) {
     const table = `teamtime0${String(number).padStart(2, '0')}`;
     try {
-      const rows = await listRecords(table, { maxRecords: 1, fields: ['Nome'] });
-      if (rows.length > 0) continue;
+      if (!(await isTableEmpty(table))) continue;
       const locale = await findFirst<LocaleFields>(LOCALI_TABLE, `{Locale} = ${formulaString(table)}`);
       if (locale) return locale;
     } catch {
-      // Tabella che non esiste: si passa alla successiva, come il portale.
+      // tabella che non esiste
     }
   }
   return null;
@@ -172,7 +236,8 @@ type PendingActivation = {
   at: string;
   table?: string;
   password?: string;
-  rowDone?: boolean;
+  /** Acquisto di prova su TEST_TABLE. */
+  test?: boolean;
   localeDone?: boolean;
 };
 
@@ -190,12 +255,22 @@ function savePending(pending: PendingActivation) {
   Storage.setItemSync(PENDING_KEY, JSON.stringify(pending));
 }
 
-/** `test`: acquisto di prova (sandbox), niente è stato scritto su Airtable. */
-export type Activation = { locale: LocaleFields; password: string; test?: boolean };
+/**
+ * `test`: acquisto di prova (sandbox). `written`: con `test`, se è stato scritto davvero su TEST_TABLE (build di
+ * sviluppo) oppure niente (TestFlight e simili).
+ */
+export type Activation = { locale: LocaleFields; password: string; test?: boolean; written?: boolean };
 
 /**
- * Dopo l'acquisto: sceglie la tabella, collega l'abbonamento al locale, scrive la riga "Attivazione TeamTime",
- * aggiorna Locali Approvati e crea la riga in SendWebLogin (parte la mail con password e QR, come dal portale).
+ * Dopo l'acquisto, gli stessi passi del portale:
+ * 1. sceglie la prima tabella vuota tra teamtime021 e teamtime050 e la prenota con la riga "Attivazione TeamTime";
+ * 2. collega l'abbonamento al locale su RevenueCat (ID utente = nome della tabella);
+ * 3. aggiorna la riga del locale in Locali Approvati con i dati del nuovo cliente (la riga può essere di un vecchio
+ *    cliente: Stripe Customer ID e Link Annullamento del vecchio cliente si sovrascrivono, Impostazioni tornano
+ *    predefinite — decisione dell'utente del 14/10/2026);
+ * 4. crea la riga in SendWebLogin con password e PDF del QR (campo "QR Code PDF" del locale): l'automazione Airtable,
+ *    la stessa del portale, manda la mail al cliente;
+ * 5. avvisa su Telegram.
  * Con `data` assente riprende l'attivazione in sospeso.
  */
 export async function activateLocale(data?: CompanyData): Promise<Activation> {
@@ -208,10 +283,47 @@ export async function activateLocale(data?: CompanyData): Promise<Activation> {
   const company = pending.data;
   const method: StoreMethod = Platform.OS === 'ios' ? 'Apple' : 'Android';
 
-  // 1. Tabella: la prima vuota (come il portale), oppure quella già scelta.
-  const record = pending.table
-    ? await findFirst<LocaleFields>(LOCALI_TABLE, `{Locale} = ${formulaString(pending.table)}`)
-    : await findEmptyTable();
+  // Acquisto di prova (sandbox: build di sviluppo, TestFlight, tester delle licenze Google): mai sulle tabelle libere
+  // dei clienti. Build di sviluppo → tutto il percorso vero ma solo su TEST_TABLE; altrimenti nessuna scrittura.
+  if (!pending.table) {
+    const before = await Purchases.getCustomerInfo();
+    if (activeEntitlement(before)?.isSandbox) {
+      if (!__DEV__) {
+        const free = await findEmptyTable();
+        const name = free?.fields.Locale ?? 'nessuna';
+        const plan = planOf(activeEntitlement(before)?.productIdentifier);
+        if (free?.fields.Locale) await Purchases.logIn(`test_${free.fields.Locale}`);
+        Storage.removeItemSync(PENDING_KEY);
+        log(`Abbonamento in-app PROVA: sarebbe stata usata ${name} (${plan.name}, ${method})`);
+        sendTelegram(
+          `${TELEGRAM_OWNER_TAG} *PROVA abbonamento in-app* (sandbox, ${method}, ${plan.name}): sarebbe stata usata ` +
+            `${name} per ${company.ragioneSociale}, ${company.mail}. Nessuna scrittura su Airtable.`
+        );
+        return {
+          locale: { ...(free?.fields ?? {}), Nome: company.ragioneSociale },
+          password: 'PROVA',
+          test: true,
+          written: false,
+        };
+      }
+      pending.test = true;
+    }
+  }
+
+  // 1. Tabella: quella già prenotata (attivazione ripresa), la tabella di prova, oppure la prima vuota (prenotata).
+  let record: AirtableRecord<LocaleFields> | null;
+  if (pending.table) {
+    record = await findFirst<LocaleFields>(LOCALI_TABLE, `{Locale} = ${formulaString(pending.table)}`);
+  } else if (pending.test) {
+    if (!(await isTableEmpty(TEST_TABLE))) {
+      Storage.removeItemSync(PENDING_KEY);
+      throw new Error(`Tabella di prova ${TEST_TABLE} non vuota: ripristinarla prima di una nuova prova`);
+    }
+    record = await findFirst<LocaleFields>(LOCALI_TABLE, `{Locale} = ${formulaString(TEST_TABLE)}`);
+    if (record) await reserveTable(TEST_TABLE);
+  } else {
+    record = await reserveEmptyTable();
+  }
   if (!record?.fields.Locale) {
     sendTelegram(
       `${TELEGRAM_OWNER_TAG} *Abbonamento in-app SENZA TABELLA LIBERA*: ${company.ragioneSociale}, ${company.mail}, ${company.telefono} (${method})`
@@ -219,28 +331,12 @@ export async function activateLocale(data?: CompanyData): Promise<Activation> {
     throw new Error('Nessuna tabella disponibile');
   }
   const table = record.fields.Locale;
-
-  // Acquisto di prova (sandbox: build di sviluppo, TestFlight, tester delle licenze Google): non si toccano le tabelle
-  // dei clienti. Si collega a un ID RevenueCat "test_…" e su Telegram arriva cosa sarebbe stato scritto.
-  const before = await Purchases.getCustomerInfo();
-  if (activeEntitlement(before)?.isSandbox) {
-    await Purchases.logIn(`test_${table}`);
-    Storage.removeItemSync(PENDING_KEY);
-    const plan = planOf(activeEntitlement(before)?.productIdentifier);
-    log(`Abbonamento in-app PROVA: sarebbe stato attivato ${table} (${plan.name}, ${method})`);
-    sendTelegram(
-      `${TELEGRAM_OWNER_TAG} *PROVA abbonamento in-app* (sandbox, ${method}, ${plan.name}): sarebbe stata usata ` +
-        `${table} per ${company.ragioneSociale}, ${company.mail}. Nessuna scrittura su Airtable.`
-    );
-    return { locale: { ...record.fields, Nome: company.ragioneSociale }, password: 'PROVA', test: true };
-  }
-
   pending.table = table;
   pending.password ??= randomPassword();
   savePending(pending);
 
-  // 2. L'abbonamento passa dal telefono "anonimo" al locale.
-  const { customerInfo } = await Purchases.logIn(table);
+  // 2. L'abbonamento passa dal telefono "anonimo" al locale (in prova a un ID "test_…", mai al locale vero).
+  const { customerInfo } = await Purchases.logIn(pending.test ? `test_${table}` : table);
   const entitlement = activeEntitlement(customerInfo);
   const plan = planOf(entitlement?.productIdentifier);
   const inTrial = entitlement?.periodType === 'TRIAL';
@@ -250,22 +346,7 @@ export async function activateLocale(data?: CompanyData): Promise<Activation> {
       : new Date(Date.now() + 30 * 86_400_000);
   const fineProva = pythonDate(trialEnd);
 
-  // 3. Prima riga della tabella, come il portale.
-  if (!pending.rowDone) {
-    const now = formatTime(new Date());
-    await createRecord(table, {
-      Nome: 'Attivazione TeamTime',
-      Entrata: now,
-      Uscita: now,
-      Device: DEVICE,
-      GPS: 'Privato',
-      'GPS Uscita': 'Privato',
-    });
-    pending.rowDone = true;
-    savePending(pending);
-  }
-
-  // 4. Locali Approvati, stessi campi del portale (tranne Stripe Customer ID) più "Metodo di pagamento".
+  // 3. Locali Approvati: stessi campi del portale più "Metodo di pagamento".
   let fields = record.fields;
   if (!pending.localeDone) {
     const updated = await updateRecord<LocaleFields>(LOCALI_TABLE, record.id, {
@@ -280,11 +361,14 @@ export async function activateLocale(data?: CompanyData): Promise<Activation> {
       'Ragione Sociale': company.ragioneSociale,
       'Partita IVA': company.partitaIva,
       Indirizzo: company.indirizzo,
+      // Riga riusata: niente collegamenti al vecchio cliente Stripe (il suo webhook non deve toccare questo locale).
+      'Stripe Customer ID': '',
       'Link Annullamento': customerInfo.managementURL ?? storeSubscriptionsUrl(method),
       'Fine Prova': fineProva,
       Status: 'Attivo',
       Pagato: inTrial ? 'No' : 'Si',
       Referral: '-',
+      Impostazioni: JSON.stringify(DEFAULT_PREFERENCES),
       'Metodo di pagamento': method,
     });
     fields = updated.fields;
@@ -292,7 +376,7 @@ export async function activateLocale(data?: CompanyData): Promise<Activation> {
     savePending(pending);
   }
 
-  // 5. Mail con password e PDF del QR (automazione Airtable di SendWebLogin, la stessa del portale).
+  // 4. Mail al cliente con password e PDF del QR (automazione Airtable di SendWebLogin, la stessa del portale).
   const qrPdf = record.fields['QR Code PDF']?.[0]?.url;
   await createRecord(SEND_WEB_LOGIN_TABLE, {
     Mail: company.mail,
@@ -306,12 +390,15 @@ export async function activateLocale(data?: CompanyData): Promise<Activation> {
     ...(qrPdf ? { Attachment: [{ url: qrPdf }] } : {}),
   });
 
+  // 5. Fatto.
   Storage.removeItemSync(PENDING_KEY);
-  log(`Abbonamento in-app: attivato ${table} (${plan.name}, ${method})`);
+  const prefix = pending.test ? '*PROVA con scritture vere* ' : '';
+  log(`Abbonamento in-app: attivato ${table} (${plan.name}, ${method})${pending.test ? ' [PROVA]' : ''}`);
   sendTelegram(
-    `${TELEGRAM_OWNER_TAG} *Nuova prova gratuita dall'app* (${method}, ${plan.name}): ${table} — ${company.ragioneSociale}, ${company.mail}`
+    `${TELEGRAM_OWNER_TAG} ${prefix}*Nuova prova gratuita dall'app* (${method}, ${plan.name}): ${table} — ` +
+      `${company.ragioneSociale}, ${company.mail}`
   );
-  return { locale: fields, password: pending.password };
+  return { locale: fields, password: pending.password, test: pending.test, written: true };
 }
 
 // --- Stato dell'abbonamento su Airtable (al posto di un webhook) ---

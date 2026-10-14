@@ -70,7 +70,9 @@ export default function ProvaGratuitaScreen() {
     try {
       const result = await activateLocale(company);
       // Credenziali ricordate subito ("Ricorda dati" del Registro Online), qualunque bottone scelga dopo.
-      if (!result.test && result.locale.Locale) await saveManagerCredentials(result.locale.Locale, result.password);
+      if (result.written !== false && result.locale.Locale) {
+        await saveManagerCredentials(result.locale.Locale, result.password);
+      }
       setPending(null);
       setDone(result);
     } catch (err) {
@@ -121,8 +123,8 @@ export default function ProvaGratuitaScreen() {
 
   const enter = async () => {
     if (!done?.locale.Locale) return;
-    if (done.test) {
-      // In prova la tabella è quella vera (vuota) di un futuro cliente: niente area manager, che ci scriverebbe.
+    if (done.written === false) {
+      // Prova senza scritture: la tabella è quella vera (vuota) di un futuro cliente, l'area manager ci scriverebbe.
       Alert.alert('Acquisto di prova', 'Con un acquisto di prova non si entra nell’area manager.');
       return;
     }
@@ -138,7 +140,9 @@ export default function ProvaGratuitaScreen() {
           <Text style={styles.heading}>Benvenuto in TeamTime!</Text>
           {done.test && (
             <Text style={styles.error}>
-              Acquisto di prova (sandbox): nessuna scrittura su Airtable e nessuna mail. Il riepilogo è su Telegram.
+              {done.written
+                ? `Acquisto di prova (sandbox) scritto davvero su ${done.locale.Locale}: ricordati di ripristinarla.`
+                : 'Acquisto di prova (sandbox): nessuna scrittura su Airtable e nessuna mail. Il riepilogo è su Telegram.'}
             </Text>
           )}
           <Text style={styles.text}>

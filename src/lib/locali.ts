@@ -26,6 +26,7 @@ export type LocaleFields = {
   Indirizzo?: string;
   'Primo Accesso'?: string;
   'Link Annullamento'?: string;
+  'Stripe Customer ID'?: string;
   Referral?: string;
   'QR Code PDF'?: { url: string }[];
   /** "Apple" / "Android" (acquisto in-app) o "Stripe" (portale). Colonna creata dall'utente il 12/10/2026. */
