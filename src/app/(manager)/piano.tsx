@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
@@ -95,12 +95,26 @@ export default function PianoScreen() {
             <AppButton
               title="Gestisci abbonamento"
               variant="outline"
-              onPress={async () => open(await managementUrl(manager))}
+              onPress={async () => {
+                // L'abbonamento si gestisce solo dallo store in cui è stato attivato.
+                const phone = Platform.OS === 'ios' ? 'Apple' : 'Android';
+                if (method !== phone) {
+                  Alert.alert(
+                    'Gestisci abbonamento',
+                    method === 'Apple'
+                      ? 'Il tuo abbonamento è stato attivato con un ID Apple: gestiscilo o disdicilo da iPhone o iPad, ' +
+                          'in Impostazioni → il tuo nome → Abbonamenti.'
+                      : 'Il tuo abbonamento è stato attivato con Google Play: gestiscilo o disdicilo da un telefono ' +
+                          'Android, nell’app Play Store → profilo → Pagamenti e abbonamenti → Abbonamenti.'
+                  );
+                  return;
+                }
+                open(await managementUrl(manager));
+              }}
             />
             <Text style={styles.note}>
-              Puoi disdire il tuo abbonamento in qualsiasi momento dalle impostazioni degli abbonamenti{' '}
-              {method === 'Apple' ? 'del tuo ID Apple' : 'di Google Play'}: resta attivo fino alla fine del periodo già
-              pagato.
+              Puoi disdire il tuo abbonamento in qualsiasi momento dalle impostazioni degli abbonamenti dello store con
+              cui l&apos;hai attivato (Apple o Google Play): resta attivo fino alla fine del periodo già pagato.
             </Text>
           </>
         ) : (

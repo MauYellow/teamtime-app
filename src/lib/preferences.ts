@@ -1,8 +1,8 @@
-import { findFirst, formulaString, updateRecord } from "@/lib/airtable";
-import { writeCache } from "@/lib/cache";
-import { LOCALI_TABLE, localeCacheKey, type LocaleFields } from "@/lib/locali";
-import { log } from "@/lib/log";
-import { getSession, updateSession } from "@/lib/session";
+import { findFirst, formulaString, updateRecord } from '@/lib/airtable';
+import { writeCache } from '@/lib/cache';
+import { LOCALI_TABLE, localeCacheKey, type LocaleFields } from '@/lib/locali';
+import { log } from '@/lib/log';
+import { getSession, updateSession } from '@/lib/session';
 
 // Impostazioni del locale: colonna "Impostazioni" (prima "Preferenze") di Locali Approvati, testo JSON (SPEC §16).
 // Le chiavi mancanti o non valide prendono il valore predefinito. Le modifica il manager dall'area manager
@@ -31,32 +31,25 @@ export const DEFAULT_PREFERENCES: LocalePreferences = {
   richieste: true,
 };
 
-export function localePreferences(
-  locale: LocaleFields | null,
-): LocalePreferences {
+export function localePreferences(locale: LocaleFields | null): LocalePreferences {
   let raw: Record<string, unknown> = {};
   try {
-    const parsed = JSON.parse(locale?.Impostazioni || "{}");
-    if (parsed && typeof parsed === "object")
-      raw = parsed as Record<string, unknown>;
+    const parsed = JSON.parse(locale?.Impostazioni || '{}');
+    if (parsed && typeof parsed === 'object') raw = parsed as Record<string, unknown>;
   } catch {
     // JSON non valido: valori predefiniti
   }
   const bool = (key: keyof LocalePreferences) =>
-    typeof raw[key] === "boolean"
-      ? (raw[key] as boolean)
-      : (DEFAULT_PREFERENCES[key] as boolean);
+    typeof raw[key] === 'boolean' ? (raw[key] as boolean) : (DEFAULT_PREFERENCES[key] as boolean);
   const positive = (key: keyof LocalePreferences, max: number) => {
     const value = Number(raw[key]);
-    return Number.isFinite(value) && value > 0 && value <= max
-      ? value
-      : (DEFAULT_PREFERENCES[key] as number);
+    return Number.isFinite(value) && value > 0 && value <= max ? value : (DEFAULT_PREFERENCES[key] as number);
   };
   return {
-    correzioneUscite: bool("correzioneUscite"),
-    giorniCorrezione: positive("giorniCorrezione", 365),
-    oreMaxTurno: positive("oreMaxTurno", 24),
-    richieste: bool("richieste"),
+    correzioneUscite: bool('correzioneUscite'),
+    giorniCorrezione: positive('giorniCorrezione', 365),
+    oreMaxTurno: positive('oreMaxTurno', 24),
+    richieste: bool('richieste'),
   };
 }
 
@@ -67,10 +60,7 @@ export function localePreferences(
  */
 export async function ensureDefaultPreferences(locale: string) {
   try {
-    const record = await findFirst<LocaleFields>(
-      LOCALI_TABLE,
-      `{Locale} = ${formulaString(locale)}`,
-    );
+    const record = await findFirst<LocaleFields>(LOCALI_TABLE, `{Locale} = ${formulaString(locale)}`);
     if (!record || record.fields.Impostazioni?.trim()) return;
     const updated = await updateRecord<LocaleFields>(LOCALI_TABLE, record.id, {
       Impostazioni: JSON.stringify(DEFAULT_PREFERENCES),
@@ -80,7 +70,7 @@ export async function ensureDefaultPreferences(locale: string) {
     updateSession(
       session.locale?.Locale === locale
         ? { manager: updated.fields, locale: updated.fields }
-        : { manager: updated.fields },
+        : { manager: updated.fields }
     );
     writeCache(localeCacheKey(locale), updated.fields);
     log(`Impostazioni predefinite salvate per ${locale}`);

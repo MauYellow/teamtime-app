@@ -28,6 +28,11 @@ export const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID
 /** Log su Telegram (canale dello sviluppatore). Stanno in .env; se mancano, i log Telegram non partono. */
 export const TELEGRAM_BOT_KEY = process.env.EXPO_PUBLIC_TELEGRAM_BOT_KEY ?? '';
 export const TELEGRAM_CHANNEL_ID = process.env.EXPO_PUBLIC_TELEGRAM_CHANNEL_ID ?? '';
+/**
+ * Tag dello sviluppatore nei messaggi Telegram importanti (prova gratuita attivata dall'app): con il tag arriva la
+ * notifica anche se il gruppo è silenziato. Il trattino basso è preceduto da "\" per il formato Markdown di Telegram.
+ */
+export const TELEGRAM_OWNER_TAG = '@Maurizio\\_182';
 
 /**
  * Impostazioni della nuova app: scheda del file "TeamTime - App Settings" PUBBLICATA SUL WEB in formato CSV

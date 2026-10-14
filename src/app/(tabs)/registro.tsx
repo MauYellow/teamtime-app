@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Linking,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -15,7 +14,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
-import { BrandTitle } from '@/components/BrandTitle';
 import { LogoHeader } from '@/components/LogoHeader';
 import { DATA_REMOVAL_FORM_URL } from '@/config';
 import { log } from '@/lib/log';
@@ -105,7 +103,7 @@ export default function RegistroScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <LogoHeader variant="icon" />
-          <BrandTitle text="Accesso Registro Online" style={styles.title} />
+          <Text style={styles.title}>Accesso Registro Online</Text>
           <Text style={styles.hint}>Compila i campi per accedere al registro online</Text>
           <TextInput
             style={styles.input}
@@ -132,9 +130,12 @@ export default function RegistroScreen() {
             onSubmitEditing={login}
           />
           {/* [develop 14/10/2026] Un solo link: porta alla prima pagina del Tutorial. */}
-          <Pressable onPress={() => router.push('/tutorial')} accessibilityRole="link">
-            <Text style={styles.link}>Non hai un account? Registrati Ora</Text>
-          </Pressable>
+          <Text style={styles.signup}>
+            Non hai un account?{' '}
+            <Text style={styles.inlineLink} onPress={() => router.push('/tutorial')} accessibilityRole="link">
+              Registrati Ora
+            </Text>
+          </Text>
           <View style={styles.switchRow}>
             <Text style={styles.switchLabel}>Ricorda dati</Text>
             <Switch
@@ -146,18 +147,22 @@ export default function RegistroScreen() {
           {error && <Text style={styles.error}>{error}</Text>}
           {renewable && <AppButton title="Rinnova abbonamento" onPress={renew} loading={loading} />}
           <AppButton title="Accedi" onPress={login} loading={loading} style={styles.button} />
-          <Text style={styles.small}>
-            Accettando dichiaro di aver letto e compreso l&apos;
-            <Text style={styles.inlineLink} onPress={() => router.push('/informativa-cookie')} accessibilityRole="link">
-              informativa sulla privacy
-            </Text>
-          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
-      {/* In basso, appena sopra il menu. */}
-      <Pressable onPress={() => Linking.openURL(DATA_REMOVAL_FORM_URL)} accessibilityRole="link" style={styles.footer}>
-        <Text style={styles.removal}>Richiedi rimozione dei tuoi dati aziendali</Text>
-      </Pressable>
+      {/* In basso, appena sopra il menu: privacy e rimozione dei dati in un solo testo (14/10/2026). */}
+      <View style={styles.footer}>
+        <Text style={styles.small}>
+          Accettando dichiaro di aver letto e compreso l&apos;
+          <Text style={styles.inlineLink} onPress={() => router.push('/informativa-cookie')} accessibilityRole="link">
+            informativa sulla privacy
+          </Text>
+          .{' '}
+          <Text style={styles.inlineLink} onPress={() => Linking.openURL(DATA_REMOVAL_FORM_URL)} accessibilityRole="link">
+            Clicca qui
+          </Text>{' '}
+          se vuoi richiedere la rimozione dei tuoi dati aziendali.
+        </Text>
+      </View>
     </SafeAreaView>
   );
 }
@@ -166,7 +171,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   content: { padding: spacing.lg, paddingTop: 0, gap: spacing.sm, alignItems: 'stretch' },
-  title: { marginTop: spacing.md },
+  title: { fontSize: 22, fontWeight: '700', color: colors.text, textAlign: 'center', marginTop: spacing.md },
   hint: { textAlign: 'center', color: colors.text, fontSize: 15, marginBottom: spacing.sm },
   input: {
     backgroundColor: colors.inputBackground,
@@ -177,16 +182,9 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   small: { textAlign: 'center', color: colors.muted, fontSize: 13 },
-  link: {
-    textAlign: 'center',
-    color: colors.primary,
-    fontSize: 14,
-    textDecorationLine: 'underline',
-    paddingVertical: spacing.xs,
-  },
+  signup: { textAlign: 'center', color: colors.text, fontSize: 14, paddingVertical: spacing.xs },
   inlineLink: { color: colors.primary, textDecorationLine: 'underline' },
   footer: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
-  removal: { textAlign: 'center', color: colors.primary, fontSize: 13, textDecorationLine: 'underline' },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',

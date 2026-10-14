@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import Purchases, { LOG_LEVEL, type CustomerInfo, type PurchasesEntitlementInfo } from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
-import { ANDROID_PACKAGE, REVENUECAT_ANDROID_KEY, REVENUECAT_IOS_KEY } from '@/config';
+import { ANDROID_PACKAGE, REVENUECAT_ANDROID_KEY, REVENUECAT_IOS_KEY, TELEGRAM_OWNER_TAG } from '@/config';
 import { formatTime } from '@/lib/activities';
 import { createRecord, findFirst, formulaString, listRecords, updateRecord, type AirtableRecord } from '@/lib/airtable';
 import { writeCache } from '@/lib/cache';
@@ -214,7 +214,7 @@ export async function activateLocale(data?: CompanyData): Promise<Activation> {
     : await findEmptyTable();
   if (!record?.fields.Locale) {
     sendTelegram(
-      `*Abbonamento in-app SENZA TABELLA LIBERA*: ${company.ragioneSociale}, ${company.mail}, ${company.telefono} (${method})`
+      `${TELEGRAM_OWNER_TAG} *Abbonamento in-app SENZA TABELLA LIBERA*: ${company.ragioneSociale}, ${company.mail}, ${company.telefono} (${method})`
     );
     throw new Error('Nessuna tabella disponibile');
   }
@@ -229,8 +229,8 @@ export async function activateLocale(data?: CompanyData): Promise<Activation> {
     const plan = planOf(activeEntitlement(before)?.productIdentifier);
     log(`Abbonamento in-app PROVA: sarebbe stato attivato ${table} (${plan.name}, ${method})`);
     sendTelegram(
-      `*PROVA abbonamento in-app* (sandbox, ${method}, ${plan.name}): sarebbe stata usata ${table} per ` +
-        `${company.ragioneSociale}, ${company.mail}. Nessuna scrittura su Airtable.`
+      `${TELEGRAM_OWNER_TAG} *PROVA abbonamento in-app* (sandbox, ${method}, ${plan.name}): sarebbe stata usata ` +
+        `${table} per ${company.ragioneSociale}, ${company.mail}. Nessuna scrittura su Airtable.`
     );
     return { locale: { ...record.fields, Nome: company.ragioneSociale }, password: 'PROVA', test: true };
   }
@@ -309,7 +309,7 @@ export async function activateLocale(data?: CompanyData): Promise<Activation> {
   Storage.removeItemSync(PENDING_KEY);
   log(`Abbonamento in-app: attivato ${table} (${plan.name}, ${method})`);
   sendTelegram(
-    `*Nuova prova gratuita dall'app* (${method}, ${plan.name}): ${table} — ${company.ragioneSociale}, ${company.mail}`
+    `${TELEGRAM_OWNER_TAG} *Nuova prova gratuita dall'app* (${method}, ${plan.name}): ${table} — ${company.ragioneSociale}, ${company.mail}`
   );
   return { locale: fields, password: pending.password };
 }
