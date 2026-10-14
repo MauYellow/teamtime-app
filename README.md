@@ -43,6 +43,14 @@ Pacchetto: `app.config.ts` aggiunge `.dev` al pacchetto Android e al bundle id i
 build tranne il profilo EAS `production` (`APP_VARIANT=production`). Così la build di sviluppo convive con l'app degli
 store. Per provare la migrazione dei dati della vecchia app serve invece il pacchetto vero: `APP_VARIANT=production`.
 
+Per provare l'abbonamento in-app serve il pacchetto vero (Google e Apple collegano gli abbonamenti al pacchetto):
+profilo EAS `development-store` (development build con `APP_VARIANT=production`, firmata con la chiave di caricamento).
+Sostituisce sul telefono l'app degli store: prima disinstallala, poi reinstallala dallo store a fine prove.
+```bash
+eas build -p android --profile development-store
+```
+Gli acquisti dei tester (sandbox) non scrivono su Airtable: arriva solo il riepilogo su Telegram (SPEC §17).
+
 Con una development build:
 ```bash
 npm run android          # Windows/Mac

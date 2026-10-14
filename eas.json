@@ -11,6 +11,18 @@
         "withoutCredentials": true
       }
     },
+    "development-store": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development",
+      "env": {
+        "APP_VARIANT": "production"
+      },
+      "android": {
+        "credentialsSource": "local",
+        "buildType": "apk"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "environment": "preview"
