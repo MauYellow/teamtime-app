@@ -181,7 +181,6 @@ function NewEmployee() {
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.stepTitle}>1. Imposta il tuo nome per iniziare</Text>
-        <Text style={styles.stepNote}>(non potrai cambiarlo in seguito)</Text>
         <View style={styles.row}>
           <TextInput
             style={[styles.input, step === 'company' && styles.inputDone]}
@@ -210,7 +209,7 @@ function NewEmployee() {
           />
         </View>
         <Text style={[styles.stepNote, nameError && styles.error]}>
-          {nameError ? 'Inserisci sia il Nome che il Cognome' : 'Assicurati di scrivere Nome e Cognome completi'}
+          {nameError ? 'Inserisci sia il Nome che il Cognome' : 'Assicurati di scrivere Nome e Cognome completi: non potrai cambiarli in seguito'}
         </Text>
 
         {step === 'name' ? (

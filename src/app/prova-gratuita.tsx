@@ -150,6 +150,11 @@ export default function ProvaGratuitaScreen() {
               {done.password}
             </Text>
           </View>
+          <Text style={styles.subheading}>Prova l&apos;app</Text>
+          <Text style={styles.small}>
+            Registrati come dipendente della tua azienda e registra la tua prima presenza con il QR Code.
+          </Text>
+          <AppButton title="Prova lo Scan del QR Code" onPress={() => router.replace('/accesso')} style={styles.button} />
           {/* [develop 14/10/2026] Niente bottone per l'area manager: si entra dal Registro Online (credenziali già
               ricordate). Il bottone che resta porta a provare lo scan come un dipendente. */}
           <View style={styles.hint}>
@@ -164,11 +169,6 @@ export default function ProvaGratuitaScreen() {
               Gli stessi dati valgono anche sul sito www.teamtimeapp.it.
             </Text>
           </View>
-          <Text style={styles.subheading}>Prova l&apos;app</Text>
-          <Text style={styles.small}>
-            Registrati come dipendente della tua azienda e registra la tua prima presenza con il QR Code.
-          </Text>
-          <AppButton title="Prova lo Scan del QR Code" onPress={() => router.replace('/accesso')} style={styles.button} />
         </ScrollView>
       </SafeAreaView>
     );
@@ -202,12 +202,12 @@ export default function ProvaGratuitaScreen() {
           <LogoHeader variant="icon" />
           <Text style={styles.heading}>Prova gratis 30 giorni</Text>
           <Text style={styles.text}>
-            Inserisci i dati della tua azienda, poi scegli il piano. Per 30 giorni non paghi nulla e puoi disdire
+            Inserisci i dati della tua azienda (o i tuoi, se sei un privato), poi scegli il piano. Per 30 giorni non paghi nulla e puoi disdire
             quando vuoi.
           </Text>
-          <Field placeholder="Ragione Sociale" value={data.ragioneSociale} onChangeText={set('ragioneSociale')} />
+          <Field placeholder="Ragione Sociale o Nome e Cognome" value={data.ragioneSociale} onChangeText={set('ragioneSociale')} />
           <Field
-            placeholder="Partita IVA"
+            placeholder="Partita IVA o Codice Fiscale"
             value={data.partitaIva}
             onChangeText={set('partitaIva')}
             autoCapitalize="characters"
