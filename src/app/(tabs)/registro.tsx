@@ -131,11 +131,9 @@ export default function RegistroScreen() {
             autoComplete="password"
             onSubmitEditing={login}
           />
+          {/* [develop 14/10/2026] Un solo link: porta alla prima pagina del Tutorial. */}
           <Pressable onPress={() => router.push('/tutorial')} accessibilityRole="link">
-            <Text style={styles.link}>La tua azienda non è ancora registrata?</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push('/prova-gratuita')} accessibilityRole="link">
-            <Text style={styles.link}>Non hai un account? Prova gratis 30 giorni</Text>
+            <Text style={styles.link}>Non hai un account? Registrati Ora</Text>
           </Pressable>
           <View style={styles.switchRow}>
             <Text style={styles.switchLabel}>Ricorda dati</Text>

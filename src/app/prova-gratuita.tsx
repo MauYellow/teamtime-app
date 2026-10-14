@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
@@ -35,12 +35,18 @@ import {
 import { colors, radius, spacing } from '@/theme';
 
 // Prova gratis 30 giorni (SPEC §17): dati azienda come il portale → paywall RevenueCat → attivazione del locale →
-// credenziali e ingresso nell'area manager. Si arriva da Primi Passi e dal Registro Online.
+// credenziali e ingresso nell'area manager. Si arriva da "Conferma e assistenza", dopo la richiesta di contatto
+// (mail e telefono già compilati).
 
 const EMPTY: CompanyData = { ragioneSociale: '', partitaIva: '', indirizzo: '', mail: '', telefono: '' };
 
 export default function ProvaGratuitaScreen() {
-  const [data, setData] = useState<CompanyData>(EMPTY);
+  const params = useLocalSearchParams<{ mail?: string; telefono?: string }>();
+  const [data, setData] = useState<CompanyData>({
+    ...EMPTY,
+    mail: params.mail ?? '',
+    telefono: params.telefono ?? '',
+  });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [pending, setPending] = useState(() => getPendingActivation());
@@ -183,7 +189,7 @@ export default function ProvaGratuitaScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <LogoHeader variant="icon" />
-          <BrandTitle text="Prova gratis 30 giorni" style={styles.title} />
+          <Text style={styles.heading}>Prova gratis 30 giorni</Text>
           <Text style={styles.text}>
             Inserisci i dati della tua azienda, poi scegli il piano. Per 30 giorni non paghi nulla e puoi disdire
             quando vuoi.
@@ -241,6 +247,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: spacing.lg, paddingTop: 0, gap: spacing.sm },
   title: { marginTop: spacing.md },
+  heading: { fontSize: 24, fontWeight: '700', color: colors.text, textAlign: 'center', marginTop: spacing.md },
   text: { textAlign: 'center', color: colors.text, fontSize: 15, lineHeight: 21, marginBottom: spacing.sm },
   input: {
     backgroundColor: colors.inputBackground,

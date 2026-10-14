@@ -242,6 +242,19 @@ export default function RegistraAziendaScreen() {
                 onPress={() => Linking.openURL(whatsappUrl(sent))}
                 style={[styles.button, styles.whatsapp]}
               />
+              {/* [develop 14/10/2026] Dopo la richiesta di contatto: prova gratuita dall'app (SPEC §17), con mail e
+                  telefono già compilati. */}
+              <AppButton
+                title="Prova gratis 30 giorni"
+                variant="outline"
+                onPress={() =>
+                  router.push({
+                    pathname: '/prova-gratuita',
+                    params: { mail: request.mail.trim(), telefono: request.phone.trim() },
+                  })
+                }
+                style={styles.trialButton}
+              />
               <AppButton title="Torna in Home" onPress={() => router.dismissTo('/home')} />
             </>
           )}
@@ -253,6 +266,7 @@ export default function RegistraAziendaScreen() {
 }
 
 const styles = StyleSheet.create({
+  trialButton: { marginBottom: spacing.sm },
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   steps: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
