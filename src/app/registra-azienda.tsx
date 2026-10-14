@@ -237,25 +237,26 @@ export default function RegistraAziendaScreen() {
                   <Text style={styles.todoText}>{item.text}</Text>
                 </View>
               ))}
+              {/* [develop 14/10/2026] In risalto la prova gratuita (SPEC §17), con mail e telefono già compilati;
+                  più in basso WhatsApp e Torna in Home. */}
+              <Text style={styles.alternative}>In alternativa</Text>
               <AppButton
-                title="Assistenza WhatsApp"
-                onPress={() => Linking.openURL(whatsappUrl(sent))}
-                style={[styles.button, styles.whatsapp]}
-              />
-              {/* [develop 14/10/2026] Dopo la richiesta di contatto: prova gratuita dall'app (SPEC §17), con mail e
-                  telefono già compilati. */}
-              <AppButton
-                title="Prova gratis 30 giorni"
-                variant="outline"
+                title="Prova subito Gratis per 30 Giorni"
                 onPress={() =>
                   router.push({
                     pathname: '/prova-gratuita',
                     params: { mail: request.mail.trim(), telefono: request.phone.trim() },
                   })
                 }
-                style={styles.trialButton}
               />
-              <AppButton title="Torna in Home" onPress={() => router.dismissTo('/home')} />
+              <View style={styles.bottomActions}>
+                <AppButton
+                  title="Scrivici su WhatsApp"
+                  onPress={() => Linking.openURL(whatsappUrl(sent))}
+                  style={styles.whatsapp}
+                />
+                <AppButton title="Torna in Home" variant="outline" onPress={() => router.dismissTo('/home')} />
+              </View>
             </>
           )}
         </ScrollView>
@@ -266,7 +267,6 @@ export default function RegistraAziendaScreen() {
 }
 
 const styles = StyleSheet.create({
-  trialButton: { marginBottom: spacing.sm },
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   steps: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
@@ -322,5 +322,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   todoText: { flex: 1, fontSize: 15, color: colors.text },
-  whatsapp: { backgroundColor: '#25D366' },
+  // Verde del logo WhatsApp attuale, meno acceso del #25D366.
+  whatsapp: { backgroundColor: '#1DAA61' },
+  alternative: { fontSize: 16, fontWeight: '700', color: colors.text, textAlign: 'center', marginTop: spacing.md },
+  bottomActions: { gap: spacing.sm, marginTop: spacing.xl * 2 },
 });
