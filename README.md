@@ -95,6 +95,7 @@ Valori che possono cambiare: `src/config.ts`.
       Console il prezzo finale dell'Italia dei tre abbonamenti (SPEC §17).
 - [x] GPS e Intercambio nelle Impostazioni solo per chi ha l'abbonamento dagli store; "Apple"/"Android" in
       `Metodo di pagamento` all'acquisto. L'app non scrive mai "Stripe" e non tocca il flusso Stripe (SPEC §17).
+- [ ] **Da testare (14/10/2026): paywall RevenueCat** sistemato dall'utente (testi in italiano, vantaggi, bottoni).
 - [ ] **Da testare (14/10/2026):** pagina "Benvenuto in TeamTime!" dopo la prova gratuita (testi, riquadro Registro
       Online con icona, "Prova lo Scan del QR Code" → Accessi, credenziali già compilate nel Registro Online).
 - [ ] **Da testare (14/10/2026): locale con Status Disattivato** (abbonamento store scaduto o disdetto a fine prova):
