@@ -15,7 +15,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
-import { BrandTitle } from '@/components/BrandTitle';
 import { BusyOverlay } from '@/components/BusyOverlay';
 import { LogoHeader } from '@/components/LogoHeader';
 import { EULA_URL, PRIVACY_URL, WHATSAPP_SUPPORT_URL } from '@/config';
@@ -70,6 +69,8 @@ export default function ProvaGratuitaScreen() {
     setBusy('Attivazione della tua azienda..');
     try {
       const result = await activateLocale(company);
+      // Credenziali ricordate subito ("Ricorda dati" del Registro Online), qualunque bottone scelga dopo.
+      if (!result.test && result.locale.Locale) await saveManagerCredentials(result.locale.Locale, result.password);
       setPending(null);
       setDone(result);
     } catch (err) {
@@ -120,7 +121,6 @@ export default function ProvaGratuitaScreen() {
 
   const enter = async () => {
     if (!done?.locale.Locale) return;
-    await saveManagerCredentials(done.locale.Locale, done.password);
     updateSession({ manager: done.locale });
     router.replace('/calendario');
   };
@@ -130,14 +130,15 @@ export default function ProvaGratuitaScreen() {
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content}>
           <LogoHeader variant="icon" />
-          <BrandTitle text="Benvenuto in TeamTime!" style={styles.title} />
+          <Text style={styles.heading}>Benvenuto in TeamTime!</Text>
           {done.test ? (
             <Text style={styles.error}>
               Acquisto di prova (sandbox): nessuna scrittura su Airtable e nessuna mail. Il riepilogo è su Telegram.
             </Text>
           ) : (
             <Text style={styles.text}>
-              La tua prova gratuita è attiva. Ti abbiamo inviato una mail con la password e il QR Code da stampare.
+              La tua prova gratuita è attiva. Riceverai una mail con i prossimi passi, la password e il QR Code da
+              stampare (controlla anche nella cartella spam).
             </Text>
           )}
           <View style={styles.card}>
@@ -156,7 +157,20 @@ export default function ProvaGratuitaScreen() {
           {done.test ? (
             <AppButton title="Chiudi" onPress={() => router.back()} style={styles.button} />
           ) : (
-            <AppButton title="Entra nell'area manager" onPress={enter} style={styles.button} />
+            <>
+              <AppButton title="Entra nell'area manager" onPress={enter} style={styles.button} />
+              {/* [develop 14/10/2026] Il titolare può provare subito l'app come farà un suo dipendente. */}
+              <Text style={styles.subheading}>Prova l&apos;app</Text>
+              <Text style={styles.small}>
+                Registrati come dipendente della tua azienda e fai la tua prima timbratura con il QR Code.
+              </Text>
+              <AppButton
+                title="Registrati come Dipendente"
+                variant="outline"
+                onPress={() => router.replace('/accesso')}
+                style={styles.button}
+              />
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -168,7 +182,7 @@ export default function ProvaGratuitaScreen() {
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content}>
           <LogoHeader variant="icon" />
-          <BrandTitle text="Completa l'attivazione" style={styles.title} />
+          <Text style={styles.heading}>Completa l&apos;attivazione</Text>
           <Text style={styles.text}>
             Abbiamo ricevuto il tuo abbonamento per {pending.data.ragioneSociale}, ma l’attivazione non è finita.
           </Text>
@@ -248,8 +262,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   content: { padding: spacing.lg, paddingTop: 0, gap: spacing.sm },
-  title: { marginTop: spacing.md },
   heading: { fontSize: 24, fontWeight: '700', color: colors.text, textAlign: 'center', marginTop: spacing.md },
+  subheading: { fontSize: 17, fontWeight: '700', color: colors.text, textAlign: 'center', marginTop: spacing.lg },
   text: { textAlign: 'center', color: colors.text, fontSize: 15, lineHeight: 21, marginBottom: spacing.sm },
   input: {
     backgroundColor: colors.inputBackground,
