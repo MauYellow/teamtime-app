@@ -163,17 +163,6 @@ function NewEmployee() {
     if (await confirmAlert('Conferma azienda', `Confermi "${locale}"?`)) await register(locale);
   };
 
-  const companyNotListed = async () => {
-    const goRegister = await confirmAlert(
-      'Azienda non in lista?',
-      'Ecco i due motivi possibili:\n' +
-        "- L'azienda è ancora in fase di verifica. Di solito l'attivazione richiede poche ore.\n" +
-        "- L'azienda non è stata ancora registrata.",
-      { cancel: 'Chiudi', confirm: 'Registra' }
-    );
-    if (goRegister) router.push('/primi-passi');
-  };
-
   // [miglioria] Nell'elenco solo i locali attivi (il QR di un locale non attivo viene comunque riconosciuto).
   const activeLocali = (locali ?? []).filter((item) => item.status === 'Attivo');
 
@@ -248,9 +237,6 @@ function NewEmployee() {
                   ))}
                 </View>
               ))}
-            <Pressable onPress={companyNotListed} accessibilityRole="button">
-              <Text style={styles.link}>La tua azienda non è in lista?</Text>
-            </Pressable>
           </View>
         )}
       </ScrollView>

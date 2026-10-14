@@ -152,7 +152,7 @@ export default function ProvaGratuitaScreen() {
           </View>
           <Text style={styles.subheading}>Prova l&apos;app</Text>
           <Text style={styles.small}>
-            Registrati come dipendente della tua azienda e registra la tua prima presenza con il QR Code.
+            Registrati come dipendente della tua azienda ed esegui il tuo primo scan del QR Code di entrata.
           </Text>
           <AppButton title="Prova lo Scan del QR Code" onPress={() => router.replace('/accesso')} style={styles.button} />
           {/* [develop 14/10/2026] Niente bottone per l'area manager: si entra dal Registro Online (credenziali già
@@ -164,9 +164,8 @@ export default function ProvaGratuitaScreen() {
               size={26}
             />
             <Text style={styles.hintText}>
-              Puoi accedere in qualsiasi momento all&apos;area manager dalla scheda{' '}
-              <Text style={styles.bold}>Registro Online</Text> nel menu in basso, con questi dati (o con la tua mail).
-              Gli stessi dati valgono anche sul sito www.teamtimeapp.it.
+              Puoi accedere in qualsiasi momento all&apos;area manager toccando questa icona (
+              <Text style={styles.bold}>Registro Online</Text>) nel menu in basso.
             </Text>
           </View>
         </ScrollView>
