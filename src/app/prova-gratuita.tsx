@@ -215,8 +215,7 @@ export default function ProvaGratuitaScreen() {
           <LogoHeader variant="icon" />
           <Text style={styles.heading}>Prova gratis 30 giorni</Text>
           <Text style={styles.text}>
-            Inserisci i dati della tua azienda (o i tuoi, se sei un privato), poi scegli il piano. Per 30 giorni non paghi nulla e puoi disdire
-            quando vuoi.
+            Inserisci i dati della tua azienda (o i tuoi, se sei un privato), poi scegli il piano.
           </Text>
           <Field placeholder="Ragione Sociale o Nome e Cognome" value={data.ragioneSociale} onChangeText={set('ragioneSociale')} />
           <Field
@@ -242,10 +241,10 @@ export default function ProvaGratuitaScreen() {
             autoComplete="tel"
           />
           {error && <Text style={styles.error}>{error}</Text>}
-          <AppButton title="Inizia la Prova Gratuita di 30 Giorni" onPress={start} style={styles.button} />
+          <AppButton title="Continua" onPress={start} style={styles.button} />
           <Text style={styles.small}>
             <Text style={styles.bold}>Oggi non paghi nulla.</Text> Al termine dei 30 giorni di prova inizierà
-            l’abbonamento annuale al prezzo del piano scelto, rinnovato automaticamente. Puoi disdire quando vuoi, anche durante la prova, dalle
+            l’abbonamento annuale al prezzo del piano scelto, rinnovato automaticamente. <Text style={styles.bold}>Puoi disdire quando vuoi</Text>, anche durante la prova, dalle
             impostazioni degli abbonamenti del tuo account {Platform.OS === 'ios' ? 'Apple' : 'Google Play'}.
             Continuando accetti i{' '}
             <Text style={styles.link} onPress={() => Linking.openURL(EULA_URL)} accessibilityRole="link">
