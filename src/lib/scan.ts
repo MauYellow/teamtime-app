@@ -1,9 +1,10 @@
 import { formatTime } from '@/lib/activities';
-import { createEntry, formulaString, listRecords, setExit, type AirtableRecord } from '@/lib/airtable';
+import { createEntry, exitLatest, type AirtableRecord } from '@/lib/airtable';
+import { writeCache } from '@/lib/cache';
 import { DEVICE } from '@/lib/device';
-import { addRecordToHistory } from '@/lib/history';
-import { fetchLocale, isYes } from '@/lib/locali';
-import { getCurrentAddress } from '@/lib/location';
+import { addRecordToHistory, companyInfo } from '@/lib/history';
+import { fetchLocale, isYes, localeCacheKey, type LocaleFields } from '@/lib/locali';
+import { getCurrentAddress, requestLocationPermission } from '@/lib/location';
 import { log } from '@/lib/log';
 import { countScanForReview } from '@/lib/review';
 import { getSession } from '@/lib/session';
@@ -75,15 +76,41 @@ export function canUseOtherLocale() {
 export async function isKnownLocale(scanned: string, ownLocale: string) {
   if (scanned === ownLocale) return true;
   const other = await fetchLocale(scanned);
-  if (other) log(`Intercambio: ${scanned} riconosciuto`);
+  if (other) {
+    log(`Intercambio: ${scanned} riconosciuto`);
+    // Salvato per il GPS di quell'azienda e per nome e impostazioni della sua scheda (SPEC §16.1).
+    writeCache(localeCacheKey(scanned), other);
+  }
   return !!other;
 }
 
-/** Testo del campo GPS / GPS Uscita: indirizzo attuale se il locale ha GPS = yes. */
-async function gpsText(kind: 'Entrata' | 'Uscita') {
-  if (!isYes(getSession().locale?.GPS)) {
+/** Dati dell'azienda del QR scansionato: il proprio locale dalla Splash, le altre salvate (o lette, 1 chiamata). */
+async function scannedLocale(table: string): Promise<LocaleFields | null> {
+  const own = getSession().locale;
+  if (!own || own.Locale === table) return own;
+  const saved = companyInfo(table);
+  if (saved) return saved;
+  try {
+    const locale = await fetchLocale(table);
+    if (locale) writeCache(localeCacheKey(table), locale);
+    return locale;
+  } catch (error) {
+    log(`GPS: dati di ${table} non letti ${String(error)}`);
+    return null;
+  }
+}
+
+/**
+ * Testo del campo GPS / GPS Uscita: indirizzo attuale se l'azienda del QR scansionato ha GPS = yes. [15/10/2026] Con
+ * l'Intercambio vale l'impostazione di quell'azienda, non quella del locale del dipendente (prima: sempre la propria).
+ */
+async function gpsText(table: string, kind: 'Entrata' | 'Uscita') {
+  const locale = await scannedLocale(table);
+  if (!isYes(locale?.GPS)) {
     return kind === 'Entrata' ? 'Estensione GPS non attiva' : "Funzione GPS non disponibile per l'utente";
   }
+  // Il permesso si chiede alla Splash solo se il proprio locale ha il GPS: per un'altra azienda si chiede qui.
+  if (locale?.Locale !== getSession().locale?.Locale) await requestLocationPermission();
   return (await getCurrentAddress()) ?? 'Posizione non condivisa';
 }
 
@@ -107,7 +134,7 @@ export async function registerEntry(table: string, onStatus: ScanStatus) {
       Nome: name,
       Entrata: time,
       Device: DEVICE,
-      GPS: await gpsText('Entrata'),
+      GPS: await gpsText(table, 'Entrata'),
     });
     record = result.record;
     if (result.trimmed > 0) log(`[Proxy] Limite righe: cancellate ${result.trimmed} righe vecchie (${table})`);
@@ -132,57 +159,34 @@ export async function registerEntry(table: string, onStatus: ScanStatus) {
 /**
  * Scrive l'uscita sull'ultima riga del dipendente nella tabella del locale scansionato.
  * "alreadyOut" se l'ultima riga non è "al lavoro" (l'app mostra l'avviso e non apre Scan Result).
+ * [15/10/2026] In un solo passaggio dal proxy (ricerca della riga + uscita): 2 chiamate ad Airtable invece di 3.
+ * [miglioria] nome confrontato in modo esatto, senza maiuscole e spazi (l'originale usava FIND, che trovava anche
+ * "Mario Rossini" cercando "Mario Rossi"); "Al lavoro" senza distinguere maiuscole (il portale scrive "Al Lavoro").
  */
 export async function registerExit(table: string, onStatus: ScanStatus): Promise<ExitResult> {
   const name = getEmployeeName() ?? '';
   onStatus('Ricerca della tua entrata..');
-  log('[API Airtable] Inizio scrittura per scan di uscita');
+  log('[Proxy] Scan di uscita: ricerca della riga e scrittura');
 
-  let latest: AirtableRecord<PresenzaFields> | undefined;
-  try {
-    // [miglioria] nome confrontato in modo esatto, senza maiuscole e spazi (l'originale usava FIND, che
-    // trovava anche "Mario Rossini" cercando "Mario Rossi").
-    [latest] = await listRecords<PresenzaFields>(table, {
-      filterByFormula: `LOWER(TRIM({Nome})) = LOWER(TRIM(${formulaString(name)}))`,
-      sort: [{ field: 'ID', direction: 'desc' }],
-      maxRecords: 1,
-    });
-  } catch (error) {
-    log(`Errore lettura righe per l'uscita: ${String(error)}`);
-    sendTelegram(scanTelegramText(name, table, 'Uscita', `Errore: ${String(error)}`));
-    return { kind: 'done', message: SCAN_MESSAGES.connection };
-  }
-
-  // [miglioria] "Al lavoro" senza distinguere maiuscole: il portale scrive "Al Lavoro".
-  // Il bottone Uscita è sempre attivo: chi non ha nessuna riga su questa tabella riceve un avviso suo.
-  if (!latest) {
-    log('Nessuna entrata del dipendente su questa tabella');
-    return { kind: 'noEntry' };
-  }
-  if (latest.fields.Uscita?.trim().toLowerCase() !== 'al lavoro') {
-    log('Ultima riga del dipendente già con uscita');
-    return { kind: 'alreadyOut' };
-  }
-  log(`[API Airtable] Riconosciuto che l'ultimo accesso è "Al lavoro": ${latest.id}`);
-
-  onStatus('Aggiornamento del database..');
   const time = formatTime(new Date());
   let record: AirtableRecord<PresenzaFields>;
   try {
-    // Il proxy rilegge la riga: se nel frattempo è stata chiusa o cancellata (es. dal manager) non scrive.
-    const outcome = await setExit<PresenzaFields>(table, latest.id, { Uscita: time, 'GPS Uscita': await gpsText('Uscita') });
+    const gps = await gpsText(table, 'Uscita');
+    onStatus('Aggiornamento del database..');
+    const outcome = await exitLatest<PresenzaFields>(table, name, { Uscita: time, 'GPS Uscita': gps });
+    if (outcome.status === 'noEntry') {
+      // Il bottone Uscita è sempre attivo: chi non ha nessuna riga su questa tabella riceve un avviso suo.
+      log('Nessuna entrata del dipendente su questa tabella');
+      return { kind: 'noEntry' };
+    }
     if (outcome.status === 'alreadyClosed') {
       addRecordToHistory(table, outcome.record);
-      log('Riga chiusa nel frattempo');
+      log('Ultima riga del dipendente già con uscita');
       return { kind: 'alreadyOut' };
-    }
-    if (outcome.status === 'gone') {
-      log('Riga cancellata nel frattempo');
-      return { kind: 'noEntry' };
     }
     record = outcome.record;
   } catch (error) {
-    log(`Errore dopo aver riconosciuto l'uscita: ${String(error)}`);
+    log(`Errore scan di uscita: ${String(error)}`);
     sendTelegram(scanTelegramText(name, table, 'Uscita', `Errore: ${String(error)}`));
     return { kind: 'done', message: SCAN_MESSAGES.connection };
   }

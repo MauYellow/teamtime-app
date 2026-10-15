@@ -45,6 +45,17 @@ export async function createEntry<T>(
   return api<{ record: AirtableRecord<T>; trimmed: number }>('/presenze/entry', { table, fields });
 }
 
+/**
+ * Scan di uscita in un solo passaggio: il proxy cerca l'ultima riga del dipendente (nome senza maiuscole e spazi) e, se
+ * è ancora "al lavoro", scrive l'uscita. "alreadyClosed" con la riga, "noEntry" se non c'è nessuna riga.
+ */
+export function exitLatest<T>(table: string, name: string, fields: { Uscita: string; 'GPS Uscita'?: string }) {
+  return api<{ status: 'done' | 'alreadyClosed'; record: AirtableRecord<T> } | { status: 'noEntry'; record?: undefined }>(
+    '/presenze/exit-latest',
+    { table, name, fields }
+  );
+}
+
 export type ExitOutcome<T> =
   | { status: 'done' | 'alreadyClosed'; record: AirtableRecord<T> }
   | { status: 'gone'; record?: undefined };
