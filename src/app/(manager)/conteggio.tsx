@@ -15,6 +15,7 @@ import {
   formatHours,
   recordsOfMonth,
   sendTotalsMail,
+  saveExcelReport,
   shareExcelReport,
   emailExcelReport,
   type Month,
@@ -122,7 +123,9 @@ export default function ConteggioScreen() {
           await shareExcelReport(table, month, totals);
         }
       } else {
-        await shareExcelReport(table, month, totals);
+        const result = await saveExcelReport(table, month, totals);
+        if (result === 'cancelled') return;
+        if (result === 'saved') Alert.alert('Report salvato', 'Il file Excel è nella cartella che hai scelto.');
       }
       log(`Conteggio: report Excel ${month.key} (${destination})`);
     } catch (error) {

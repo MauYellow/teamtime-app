@@ -1,6 +1,7 @@
-import { File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as MailComposer from 'expo-mail-composer';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 import * as XLSX from 'xlsx';
 
 import { formatTime } from '@/lib/activities';
@@ -201,10 +202,16 @@ export function sendTotalsMail(month: Month, totals: EmployeeTotal[]) {
 
 /**
  * Report Excel nello stesso formato del portale: Nome Cognome, giorni 01–31, Totale (formula), Mese, Anno.
- * [miglioria] il file si crea nell'app e si condivide (l'originale compilava un Google Sheet).
+ * [miglioria] il file si crea nell'app e si salva o si condivide (l'originale compilava un Google Sheet).
  */
-/** Crea il file .xlsx del report nella cache del telefono e ne restituisce l'indirizzo. */
-function createExcelReport(locale: string, month: Month, totals: EmployeeTotal[]) {
+const EXCEL_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+function excelFileName(locale: string, month: Month) {
+  return `${locale}_${month.month}_${month.year}_report.xlsx`;
+}
+
+/** Contenuto del file .xlsx del report. */
+function excelReportBytes(month: Month, totals: EmployeeTotal[]) {
   const days = Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, '0'));
   const header = ['Nome Cognome', ...days, 'Totale', 'Mese', 'Anno'];
   const rows: (string | number | XLSX.CellObject)[][] = totals.map((item, index) => [
@@ -224,21 +231,48 @@ function createExcelReport(locale: string, month: Month, totals: EmployeeTotal[]
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, 'Report');
-  const bytes = new Uint8Array(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer);
+  return new Uint8Array(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer);
+}
 
-  const file = new File(Paths.cache, `${locale}_${month.month}_${month.year}_report.xlsx`);
+/** Crea il file .xlsx del report nella cache del telefono e ne restituisce l'indirizzo. */
+function createExcelReport(locale: string, month: Month, totals: EmployeeTotal[]) {
+  const file = new File(Paths.cache, excelFileName(locale, month));
   if (file.exists) file.delete();
-  file.write(bytes);
+  file.write(excelReportBytes(month, totals));
   return file.uri;
 }
 
-/** "Scarica sul telefono": pannello di condivisione (Salva su File, Drive, WhatsApp...). */
+/** Pannello di condivisione (Salva su File, Drive, WhatsApp...). */
 export async function shareExcelReport(locale: string, month: Month, totals: EmployeeTotal[]) {
   await Sharing.shareAsync(createExcelReport(locale, month, totals), {
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    mimeType: EXCEL_MIME,
     UTI: 'org.openxmlformats.spreadsheetml.sheet',
     dialogTitle: `Report ${month.label}`,
   });
+}
+
+/**
+ * "Scarica sul telefono". Android: il manager sceglie la cartella (es. Download) e il file si salva lì; "cancelled" se
+ * chiude la scelta. iPhone: non c'è una cartella Download, si apre il pannello con "Salva su File" ("shared").
+ */
+export async function saveExcelReport(
+  locale: string,
+  month: Month,
+  totals: EmployeeTotal[]
+): Promise<'saved' | 'cancelled' | 'shared'> {
+  if (Platform.OS !== 'android') {
+    await shareExcelReport(locale, month, totals);
+    return 'shared';
+  }
+  let directory: Directory;
+  try {
+    directory = await Directory.pickDirectoryAsync();
+  } catch {
+    return 'cancelled';
+  }
+  const file = directory.createFile(excelFileName(locale, month), EXCEL_MIME);
+  file.write(excelReportBytes(month, totals));
+  return 'saved';
 }
 
 /**

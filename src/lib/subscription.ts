@@ -134,8 +134,8 @@ export function clearPendingActivation() {
 }
 
 /**
- * `test`: acquisto di prova (sandbox). `written`: con `test`, se è stato scritto davvero sulla tabella di prova
- * teamtime037 (build di sviluppo) oppure niente (TestFlight e simili).
+ * `test`: acquisto di prova (sandbox). `written`: con `test`, se è stato scritto davvero (build di sviluppo, stessa
+ * tabella che avrebbe un acquisto reale) oppure niente (TestFlight e simili).
  */
 export type Activation = { locale: LocaleFields; password: string; test?: boolean; written?: boolean };
 
@@ -152,7 +152,8 @@ type ActivationResponse = {
  * stessi passi del portale (prima tabella vuota tra teamtime021 e teamtime050 prenotata, Locali Approvati, riga in
  * SendWebLogin per la mail con password e QR, Telegram). Poi l'app collega l'abbonamento al locale su RevenueCat
  * (ID utente = nome della tabella; negli acquisti di prova "test_<tabella>", mai il locale vero).
- * Acquisti di prova (sandbox): build di sviluppo → tutto vero ma solo su teamtime037; altrimenti nessuna scrittura.
+ * Acquisti di prova (sandbox): build di sviluppo → tutto vero, sulla prima tabella vuota come un acquisto reale
+ * (dal 15/10/2026; prima solo teamtime037); altrimenti nessuna scrittura.
  * Con `data` assente riprende l'attivazione in sospeso.
  */
 export async function activateLocale(data?: CompanyData): Promise<Activation> {

@@ -25,7 +25,6 @@ import { reportError } from '@/lib/sentry';
 import { saveManagerCredentials } from '@/lib/storage';
 import {
   activateLocale,
-  clearPendingActivation,
   getPendingActivation,
   isPurchasesReady,
   startTrialPaywall,
@@ -76,13 +75,6 @@ export default function ProvaGratuitaScreen() {
     } catch (err) {
       log(`Prova gratuita: attivazione non riuscita ${String(err)}`);
       const code = err instanceof ApiError ? err.code : '';
-      if (code === 'test_table_not_empty') {
-        // Solo nelle prove: la tabella di prova va ripristinata prima di riprovare.
-        clearPendingActivation();
-        setPending(null);
-        Alert.alert('Prova non eseguita', 'La tabella di prova teamtime037 non è vuota: ripristinarla e riprovare.');
-        return;
-      }
       if (code === 'no_table') {
         setPending(getPendingActivation());
         Alert.alert(
