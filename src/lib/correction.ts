@@ -77,7 +77,7 @@ export async function correctExit(table: string, record: Presenza, exit: Date): 
   const time = formatTime(exit);
   const outcome = await setExit<PresenzaFields>(table, record.id, { Uscita: time, 'GPS Uscita': EMPLOYEE_EXIT_MARK });
   if (outcome.status === 'gone') {
-    removeRecordFromHistory(record.id);
+    removeRecordFromHistory(table, record.id);
     log(`Gestisci: turno ${record.id} non più presente su Airtable`);
     return 'gone';
   }

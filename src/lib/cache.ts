@@ -17,6 +17,11 @@ function read<T>(key: string): Entry<T> | null {
   }
 }
 
+/** Copia salvata con il momento del salvataggio, o null. */
+export function readCacheEntry<T>(key: string): Entry<T> | null {
+  return read<T>(key);
+}
+
 export function writeCache<T>(key: string, value: T) {
   Storage.setItemSync(PREFIX + key, JSON.stringify({ savedAt: Date.now(), value }));
 }

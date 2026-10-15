@@ -7,19 +7,36 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/AppButton';
 import { BusyOverlay } from '@/components/BusyOverlay';
 import { CompanyRequestBanner } from '@/components/CompanyRequestBanner';
+import { CompanyTabs, validTab, type CompanyTab } from '@/components/CompanyTabs';
 import { LogoHeader } from '@/components/LogoHeader';
 import { PresenzaRow } from '@/components/PresenzaRow';
 import { useQrScanner } from '@/components/QrScanner';
 import { formatTime } from '@/lib/activities';
 import { confirmAlert } from '@/lib/dialogs';
-import { dayLabel, getSavedHistory, openPastShifts, refreshHistory, type SavedHistory } from '@/lib/history';
+import {
+  companyName,
+  dayLabel,
+  entryTodayIn,
+  hasMissingCopies,
+  intercambioActive,
+  localDay,
+  mergedRecords,
+  myCompanies,
+  oldestFetch,
+  openShiftElsewhere,
+  openShiftTodayElsewhere,
+  refreshEmployeeTables,
+  today,
+  type CompanyPresenza,
+  type RefreshMode,
+} from '@/lib/history';
+import { isAtWork } from '@/lib/manager';
 import { log } from '@/lib/log';
 import { showScanResult } from '@/lib/navigation';
 import { askReview, shouldAskReview } from '@/lib/review';
 import {
   canUseOtherLocale,
   friendlyScanMessage,
-  hasEntryToday,
   isKnownLocale,
   registerEntry,
   recordScanOutcome,
@@ -33,14 +50,17 @@ import { colors, radius, spacing } from '@/theme';
 const HOME_ROWS = 5;
 
 // Home del dipendente (SPEC §4): dati del dipendente, Registra Entrata / Uscita, ultime attività e controllo dei turni
-// non chiusi. Tutto dalla copia di Airtable (lib/history.ts): nessuna chiamata in più, tranne la prima volta che la
-// copia non c'è ancora.
+// non chiusi. Tutto dalle copie di Airtable (lib/history.ts): nessuna chiamata in più, tranne la prima volta che una
+// copia non c'è ancora. Con l'Intercambio: schede "Tutte" + una per azienda e controlli su tutte (SPEC §16.1).
 export default function HomeScreen() {
   // Valori letti subito (lettura sincrona): altrimenti al primo disegno la Home mostrerebbe per un attimo
   // la versione "non registrato" anche a chi è già registrato.
   const [name, setName] = useState<string | null>(getEmployeeName);
   const [locale, setLocale] = useState<string | null>(getEmployeeLocale);
-  const [history, setHistory] = useState<SavedHistory | null>(() => getSavedHistory(getEmployeeLocale(), getEmployeeName()));
+  const [tables, setTables] = useState<string[]>(myCompanies);
+  const [tab, setTab] = useState<CompanyTab>('all');
+  /** Cambia a ogni lettura delle copie: ridisegna la schermata con i dati salvati. */
+  const [, setVersion] = useState(0);
   const [historyFailed, setHistoryFailed] = useState(false);
   const loadingHistory = useRef(false);
   const [scanError, setScanError] = useState<ScanError | null>(getLastScanError);
@@ -58,18 +78,20 @@ export default function HomeScreen() {
     setScanError(null);
   };
 
-  /** Lettura completa da Airtable (1 chiamata): la prima volta, o toccando l'avviso dei turni non chiusi. */
-  const loadHistory = useCallback(async (table: string, employee: string) => {
+  /** Lettura da Airtable (1 chiamata per azienda): copie mancanti, o tutte toccando l'avviso dei turni non chiusi. */
+  const loadHistory = useCallback(async (table: string, employee: string, mode: RefreshMode) => {
     if (loadingHistory.current) return;
     loadingHistory.current = true;
     try {
-      setHistory(await refreshHistory(table, employee));
+      await refreshEmployeeTables(table, employee, intercambioActive(), mode);
       setHistoryFailed(false);
     } catch (error) {
       log(`Home: copia Airtable non letta ${String(error)}`);
       setHistoryFailed(true);
     } finally {
       loadingHistory.current = false;
+      setTables(myCompanies());
+      setVersion((value) => value + 1);
     }
   }, []);
 
@@ -79,10 +101,12 @@ export default function HomeScreen() {
     setName(employee);
     setLocale(table);
     setScanError(getLastScanError());
-    const saved = getSavedHistory(table, employee);
-    setHistory(saved);
-    // Solo se la copia non c'è ancora (nuovo dipendente o app appena aggiornata).
-    if (!saved && table && employee) loadHistory(table, employee);
+    const companies = myCompanies();
+    setTables(companies);
+    setTab((current) => validTab(current, companies));
+    setVersion((value) => value + 1);
+    // Solo se una copia non c'è ancora (nuovo dipendente, app appena aggiornata, prima timbratura in un'azienda).
+    if (table && employee && hasMissingCopies()) loadHistory(table, employee, 'missing');
   }, [loadHistory]);
 
   // Rilegge i dati ogni volta che la schermata torna visibile (es. dopo Scan Result o Accesso Dipendenti).
@@ -107,19 +131,6 @@ export default function HomeScreen() {
 
     if (scanned === locale) {
       log('Riconosciuto Locale Scannato = Locale di lavoro');
-      if (hasEntryToday()) {
-        log("Riconosciuta un'altra entrata nella giornata di oggi");
-        const proceed = await confirmAlert('Attenzione!', "Risulta già un'entrata a tuo nome oggi, vuoi procedere?", {
-          cancel: 'No',
-          confirm: 'Sì',
-        });
-        if (!proceed) {
-          log('Seconda entrata del giorno annullata');
-          finish('Entrata', SCAN_MESSAGES.entryCancelled);
-          return;
-        }
-        log('Confermata la seconda entrata del giorno');
-      }
     } else {
       log(`Locale Scannato diverso dal Locale salvato: ${scanned}`);
       if (!canUseOtherLocale()) {
@@ -128,6 +139,27 @@ export default function HomeScreen() {
         return;
       }
       log('Intercambio OK');
+    }
+
+    // Controlli sulle copie di tutte le aziende (SPEC §16.1): turno aperto oggi altrove, oppure già un'entrata oggi.
+    const companies = myCompanies();
+    const openElsewhere = openShiftTodayElsewhere(companies, name, scanned);
+    const entryIn = openElsewhere ? null : entryTodayIn(companies, name);
+    if (openElsewhere || entryIn) {
+      const message = openElsewhere
+        ? `Hai un turno aperto in ${companyName(openElsewhere.table)} dalle ${openElsewhere.record.fields.Entrata ?? '—'}. ` +
+          `Vuoi registrare comunque l'entrata in ${companyName(scanned)}?`
+        : entryIn === scanned
+          ? "Risulta già un'entrata a tuo nome oggi, vuoi procedere?"
+          : `Risulta già un'entrata a tuo nome oggi in ${companyName(entryIn ?? '')}, vuoi procedere?`;
+      log(openElsewhere ? `Turno aperto oggi in ${openElsewhere.table}` : `Riconosciuta un'altra entrata oggi (${entryIn})`);
+      const proceed = await confirmAlert('Attenzione!', message, { cancel: 'No', confirm: 'Sì' });
+      if (!proceed) {
+        log("Entrata annullata dopo l'avviso");
+        finish('Entrata', SCAN_MESSAGES.entryCancelled);
+        return;
+      }
+      log("Confermata l'entrata dopo l'avviso");
     }
 
     setBusy('Riconoscimento account in corso..');
@@ -163,6 +195,23 @@ export default function HomeScreen() {
     setBusy('QR Code riconosciuto..');
     try {
       const result = await registerExit(scanned, setBusy);
+      if (result.kind !== 'done') {
+        // Uscita con il QR di un'azienda mentre il turno aperto è in un'altra (SPEC §16.1, §15.6 punto 8): solo avviso.
+        const elsewhere = openShiftElsewhere(myCompanies(), name, scanned);
+        if (elsewhere) {
+          setBusy(null);
+          log(`Uscita su ${scanned}, turno aperto in ${elsewhere.table}`);
+          const company = companyName(elsewhere.table);
+          const pastDay = localDay(elsewhere.record) < today();
+          Alert.alert(
+            'Attenzione!',
+            `Il tuo turno aperto è in ${company} (entrata ${dayLabel(elsewhere.record)} alle ` +
+              `${elsewhere.record.fields.Entrata ?? '—'}). Scansiona il QR Code di ${company} per registrare l'uscita` +
+              (pastDay ? ', oppure inseriscila da Gestisci.' : '.')
+          );
+          return;
+        }
+      }
       if (result.kind === 'alreadyOut') {
         setBusy(null);
         Alert.alert('Attenzione!', 'Risulti già uscito da lavoro. Solo il manager può modificare gli orari');
@@ -192,10 +241,16 @@ export default function HomeScreen() {
   const checkOpenShifts = async () => {
     if (!locale || !name) return;
     setBusy('Aggiornamento dei tuoi accessi..');
-    await loadHistory(locale, name);
+    await loadHistory(locale, name, 'all');
     setBusy(null);
     router.navigate('/gestisci');
   };
+
+  const allRows = mergedRecords(tables, name);
+  const rows = tab === 'all' ? allRows : allRows.filter((item) => item.table === tab);
+  const showCompany = tab === 'all' && tables.length > 1;
+  /** Copia del proprio locale già letta (le altre aziende si aggiungono quando arrivano). */
+  const loaded = oldestFetch([locale ?? ''], name) !== null || allRows.length > 0;
 
   if (!name || !locale) {
     return (
@@ -229,11 +284,16 @@ export default function HomeScreen() {
         </View>
         {scanError && <ScanErrorNotice error={scanError} onDismiss={dismissScanError} />}
         <Text style={styles.sectionTitle}>Ultime Attività</Text>
-        {history ? (
-          history.records.length > 0 ? (
+        <CompanyTabs tables={tables} selected={tab} onSelect={setTab} />
+        {loaded ? (
+          rows.length > 0 ? (
             <View>
-              {history.records.slice(0, HOME_ROWS).map((record) => (
-                <PresenzaRow key={record.id} record={record} />
+              {rows.slice(0, HOME_ROWS).map(({ table, record }) => (
+                <PresenzaRow
+                  key={`${table}:${record.id}`}
+                  record={record}
+                  company={showCompany ? companyName(table) : undefined}
+                />
               ))}
             </View>
           ) : (
@@ -245,7 +305,14 @@ export default function HomeScreen() {
           </Text>
         )}
       </ScrollView>
-      {history && <ShiftsCheck history={history} onPress={checkOpenShifts} />}
+      {loaded && (
+        <ShiftsCheck
+          all={allRows}
+          fetchedAt={oldestFetch(tables, name)}
+          withCompany={tables.length > 1}
+          onPress={checkOpenShifts}
+        />
+      )}
       {/* Rimando ad Accesso Dipendenti appena sopra la tab bar, con la stessa icona della scheda. */}
       <Pressable
         onPress={() => router.navigate('/accesso')}
@@ -286,9 +353,23 @@ function ScanErrorNotice({ error, onDismiss }: { error: ScanError; onDismiss: ()
   );
 }
 
-/** Controllo dei turni lasciati "al lavoro" nei giorni precedenti: verde se tutto è a posto, rosso se no. */
-function ShiftsCheck({ history, onPress }: { history: SavedHistory; onPress: () => void }) {
-  const open = openPastShifts(history.records);
+/**
+ * Controllo dei turni lasciati "al lavoro" nei giorni precedenti, in tutte le aziende: verde se tutto è a posto,
+ * rosso se no.
+ */
+function ShiftsCheck({
+  all,
+  fetchedAt,
+  withCompany,
+  onPress,
+}: {
+  all: CompanyPresenza[];
+  fetchedAt: number | null;
+  withCompany: boolean;
+  onPress: () => void;
+}) {
+  const day = today();
+  const open = all.filter((item) => isAtWork(item.record) && localDay(item.record) < day);
   if (open.length === 0) {
     return (
       <View style={styles.hint}>
@@ -297,7 +378,11 @@ function ShiftsCheck({ history, onPress }: { history: SavedHistory; onPress: () 
       </View>
     );
   }
-  const days = open.slice(0, 3).map(dayLabel).join(', ') + (open.length > 3 ? '…' : '');
+  const days =
+    open
+      .slice(0, 3)
+      .map((item) => dayLabel(item.record) + (withCompany ? ` (${companyName(item.table)})` : ''))
+      .join(', ') + (open.length > 3 ? '…' : '');
   const text = open.length === 1 ? `Hai 1 turno non chiuso: ${days}` : `Hai ${open.length} turni non chiusi: ${days}`;
   return (
     <Pressable
@@ -309,7 +394,7 @@ function ShiftsCheck({ history, onPress }: { history: SavedHistory; onPress: () 
       <View style={styles.flexShrink}>
         <Text style={[styles.hintText, styles.alertText]}>{text}</Text>
         <Text style={styles.updated}>
-          Aggiornato alle {formatTime(new Date(history.fetchedAt))} · tocca per aggiornare
+          {fetchedAt ? `Aggiornato alle ${formatTime(new Date(fetchedAt))} · ` : ''}tocca per aggiornare
         </Text>
       </View>
     </Pressable>

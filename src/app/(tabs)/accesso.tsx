@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { BusyOverlay } from '@/components/BusyOverlay';
+import { CompanyTabs, validTab, type CompanyTab } from '@/components/CompanyTabs';
 import { LogoHeader } from '@/components/LogoHeader';
 import { PresenzaRow } from '@/components/PresenzaRow';
 import { SectionHeader } from '@/components/SectionHeader';
@@ -25,14 +26,20 @@ import { useQrScanner } from '@/components/QrScanner';
 import { formatTime } from '@/lib/activities';
 import { confirmAlert, infoAlert } from '@/lib/dialogs';
 import {
-  currentMonth,
+  companyName,
+  currentMonthOf,
   formatEmployeeHours,
   getSavedHistory,
-  needsRefresh,
+  intercambioActive,
+  mergedRecords,
+  myCompanies,
+  oldestFetch,
   pastMonths,
-  refreshHistory,
-  type SavedHistory,
+  pastMonthsAll,
+  refreshEmployeeTables,
+  type PastMonth,
 } from '@/lib/history';
+import { hoursOf } from '@/lib/manager';
 import { fetchLocaleNames } from '@/lib/locali';
 import { log } from '@/lib/log';
 import { updateSession } from '@/lib/session';
@@ -248,27 +255,36 @@ function NewEmployee() {
 
 // Accesso già effettuato: storico e ore lette da Airtable (lib/history.ts). "Azzera Ultime Attività" è stato tolto:
 // i dati vengono dal registro online e il dipendente non deve poterli cancellare.
+// Con l'Intercambio (SPEC §16.1): schede "Tutte" + una per azienda; in "Tutte" il totale di tutte le aziende con il
+// dettaglio per azienda.
 function AlreadyRegistered() {
   const locale = getEmployeeLocale();
   const name = getEmployeeName();
-  const [saved, setSaved] = useState<SavedHistory | null>(() => getSavedHistory(locale, name));
+  const [tables, setTables] = useState<string[]>(myCompanies);
+  const [tab, setTab] = useState<CompanyTab>('all');
+  /** Cambia a ogni lettura delle copie: ridisegna la schermata con i dati salvati. */
+  const [, setVersion] = useState(0);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  /** Rilegge da Airtable solo se serve (timbratura nuova, copia vecchia) oppure trascinando la lista. */
+  /** Rilegge da Airtable solo le copie che servono (timbratura nuova, copia vecchia), oppure tutte trascinando. */
   const load = useCallback(
     async (force: boolean) => {
       if (!locale || !name) return;
-      if (!force && !needsRefresh(getSavedHistory(locale, name))) return;
+      const companies = myCompanies();
+      setTables(companies);
+      setTab((current) => validTab(current, companies));
       setLoading(true);
       try {
-        setSaved(await refreshHistory(locale, name));
+        await refreshEmployeeTables(locale, name, intercambioActive(), force ? 'all' : 'stale');
         setFailed(false);
       } catch (error) {
         log(`Accesso Dipendenti: errore lettura storico ${String(error)}`);
         setFailed(true);
       } finally {
         setLoading(false);
+        setTables(myCompanies());
+        setVersion((value) => value + 1);
       }
     },
     [locale, name]
@@ -295,13 +311,31 @@ function AlreadyRegistered() {
     restartFromSplash();
   };
 
-  const current = currentMonth(saved?.records ?? []);
-  const previous = pastMonths(locale, name, saved?.records ?? []);
+  const shown = tab === 'all' ? tables : [tab];
+  const multi = tables.length > 1;
+  const loaded = shown.some((table) => getSavedHistory(table, name) !== null);
+  const monthRows = currentMonthOf(mergedRecords(shown, name));
+  const monthHours = monthRows.reduce((sum, item) => sum + hoursOf(item.record), 0);
+  /** Dettaglio per azienda del mese in corso (solo in "Tutte" con più aziende). */
+  const parts =
+    tab === 'all' && multi
+      ? tables
+          .map((table) => ({
+            table,
+            hours: monthRows.filter((item) => item.table === table).reduce((sum, item) => sum + hoursOf(item.record), 0),
+          }))
+          .filter((part) => part.hours > 0)
+      : [];
+  const previous: (PastMonth & { parts?: { table: string; hours: number | null }[] })[] =
+    tab === 'all' && multi
+      ? pastMonthsAll(tables, name)
+      : pastMonths(shown[0] ?? null, name, getSavedHistory(shown[0] ?? null, name)?.records ?? []);
   const monthName = new Date().toLocaleDateString('it-IT', { month: 'long' });
-  const fetchedAt = saved ? new Date(saved.fetchedAt) : null;
+  const fetched = oldestFetch(shown, name);
+  const fetchedAt = fetched ? new Date(fetched) : null;
   const status = failed
     ? 'Connessione assente: dati non aggiornati'
-    : loading && !saved
+    : loading && !loaded
       ? 'Caricamento…'
       : fetchedAt
         ? `Aggiornato il ${fetchedAt.getDate()}/${fetchedAt.getMonth() + 1} alle ${formatTime(fetchedAt)}`
@@ -317,12 +351,15 @@ function AlreadyRegistered() {
         </Text>
       </View>
 
+      <CompanyTabs tables={tables} selected={tab} onSelect={setTab} />
+
       <View style={styles.totalCard}>
         <Text style={styles.totalLabel}>
           Ore lavorate a <Text style={styles.bold}>{monthName}</Text>
+          {tab !== 'all' && multi ? ` in ${companyName(tab)}` : ''}
         </Text>
         <View style={styles.totalRow}>
-          <Text style={styles.totalValue}>{saved ? formatEmployeeHours(current?.hours ?? 0) : '—'}</Text>
+          <Text style={styles.totalValue}>{loaded ? formatEmployeeHours(monthHours) : '—'}</Text>
           <Pressable
             onPress={() => Alert.alert(`Ore lavorate a ${monthName}`, HOURS_INFO)}
             accessibilityRole="button"
@@ -331,6 +368,12 @@ function AlreadyRegistered() {
             <SymbolView name={{ ios: 'info.circle', android: 'info' }} tintColor={colors.primary} size={20} />
           </Pressable>
         </View>
+        {parts.length > 1 &&
+          parts.map((part) => (
+            <Text key={part.table} style={styles.part}>
+              {companyName(part.table)}: {formatEmployeeHours(part.hours)} ore
+            </Text>
+          ))}
         {/* Aggiornamento manuale: icona che ruota · data e ora dell'ultima lettura. */}
         <Pressable
           onPress={() => load(true)}
@@ -354,14 +397,20 @@ function AlreadyRegistered() {
       </Pressable>
 
       <SectionHeader title="Ultimi accessi" info={HOURS_INFO} />
-      {!saved ? (
+      {!loaded ? (
         loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : (
           <Text style={styles.empty}>Tocca l&apos;icona di aggiornamento per caricare i tuoi accessi</Text>
         )
-      ) : current ? (
-        current.records.map((record) => <PresenzaRow key={record.id} record={record} />)
+      ) : monthRows.length > 0 ? (
+        monthRows.map(({ table, record }) => (
+          <PresenzaRow
+            key={`${table}:${record.id}`}
+            record={record}
+            company={tab === 'all' && multi ? companyName(table) : undefined}
+          />
+        ))
       ) : (
         <Text style={styles.empty}>Nessuna presenza questo mese</Text>
       )}
@@ -372,7 +421,19 @@ function AlreadyRegistered() {
           <SectionHeader title="Mesi precedenti" info={PAST_MONTHS_INFO} style={styles.sectionSpacing} />
           {previous.map((month) => (
             <View key={month.key} style={styles.monthRow}>
-              <Text style={styles.monthLabel}>{month.label}</Text>
+              <View style={styles.flex}>
+                <Text style={styles.monthLabel}>{month.label}</Text>
+                {month.parts && month.parts.length > 1 && (
+                  <Text style={styles.monthParts}>
+                    {month.parts
+                      .map(
+                        (part) =>
+                          `${companyName(part.table)}: ${part.hours === null ? 'n.d.' : formatEmployeeHours(part.hours)}`
+                      )
+                      .join(' · ')}
+                  </Text>
+                )}
+              </View>
               <Text style={[styles.monthHours, month.hours === null && styles.unavailable]}>
                 {month.hours === null ? 'Totale non disponibile' : `${formatEmployeeHours(month.hours)} ore`}
               </Text>
@@ -383,8 +444,6 @@ function AlreadyRegistered() {
     </ScrollView>
   );
 }
-
-
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
@@ -461,7 +520,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  monthLabel: { flex: 1, fontSize: 16, fontWeight: '600', color: colors.text },
+  monthLabel: { fontSize: 16, fontWeight: '600', color: colors.text },
+  monthParts: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  part: { fontSize: 13, color: colors.muted },
   monthHours: { fontSize: 15, color: colors.text },
   unavailable: { color: colors.muted, fontStyle: 'italic', fontSize: 13 },
   empty: { textAlign: 'center', color: colors.muted, paddingVertical: spacing.lg },

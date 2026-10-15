@@ -1,19 +1,13 @@
 import { formatTime } from '@/lib/activities';
 import { createEntry, formulaString, listRecords, setExit, type AirtableRecord } from '@/lib/airtable';
 import { DEVICE } from '@/lib/device';
-import { addRecordToHistory, historyHasEntryToday } from '@/lib/history';
+import { addRecordToHistory } from '@/lib/history';
 import { fetchLocale, isYes } from '@/lib/locali';
 import { getCurrentAddress } from '@/lib/location';
 import { log } from '@/lib/log';
 import { countScanForReview } from '@/lib/review';
 import { getSession } from '@/lib/session';
-import {
-  clearLastScanError,
-  getEmployeeLocale,
-  getEmployeeName,
-  saveLastScanError,
-  type ScanError,
-} from '@/lib/storage';
+import { clearLastScanError, getEmployeeName, saveLastScanError, type ScanError } from '@/lib/storage';
 import { scanTelegramText, sendTelegram } from '@/lib/telegram';
 
 // Timbrature di entrata e uscita (SPEC §4.1 e §4.2), come i blocchi "ScriviOrario" e "Scrivi Uscita" di Thunkable.
@@ -41,11 +35,6 @@ type PresenzaFields = {
 export type ScanStatus = (text: string) => void;
 
 export type ExitResult = { kind: 'done'; message: string } | { kind: 'alreadyOut' } | { kind: 'noEntry' };
-
-/** True se nella copia di Airtable c'è già una presenza di oggi (lib/history.ts: unica fonte, niente dati del telefono). */
-export function hasEntryToday() {
-  return historyHasEntryToday(getEmployeeLocale(), getEmployeeName());
-}
 
 /**
  * Messaggio comprensibile per il dipendente ("Scan non riuscito: motivo. Riprova"). Il messaggio tecnico resta nel log
