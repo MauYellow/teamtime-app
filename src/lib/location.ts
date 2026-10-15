@@ -22,7 +22,8 @@ export async function requestLocationPermission() {
 async function reverseGeocode(latitude: number, longitude: number) {
   try {
     // Tramite il proxy (la chiave di geocode.maps.co resta sul server, SPEC §18).
-    const { address } = await api<{ address: string }>('/geocode', { lat: latitude, lon: longitude });
+    // Al massimo 8 secondi (SPEC §15.6 punto 1): poi si salvano le coordinate.
+    const { address } = await api<{ address: string }>('/geocode', { lat: latitude, lon: longitude }, 8_000);
     return address;
   } catch (error) {
     // Se l'indirizzo non arriva si salvano almeno le coordinate.

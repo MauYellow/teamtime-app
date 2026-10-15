@@ -40,20 +40,31 @@ export async function getRecord<T>(table: string, id: string) {
  */
 export async function createEntry<T>(
   table: string,
-  fields: { Nome: string; Entrata: string; Device?: string; GPS?: string }
+  fields: { Nome: string; Entrata: string; Device?: string; GPS?: string },
+  /** Dopo un'entrata non riuscita: il proxy controlla prima se era stata scritta comunque (SPEC §15.6 punto 2). */
+  checkRecent = false
 ) {
-  return api<{ record: AirtableRecord<T>; trimmed: number }>('/presenze/entry', { table, fields });
+  return api<{ record: AirtableRecord<T>; trimmed: number; duplicate?: boolean }>('/presenze/entry', {
+    table,
+    fields,
+    checkRecent,
+  });
 }
 
 /**
  * Scan di uscita in un solo passaggio: il proxy cerca l'ultima riga del dipendente (nome senza maiuscole e spazi) e, se
- * è ancora "al lavoro", scrive l'uscita. "alreadyClosed" con la riga, "noEntry" se non c'è nessuna riga.
+ * è ancora "al lavoro", scrive l'uscita. "alreadyClosed" con la riga, "noEntry" se non c'è nessuna riga, "tooOld" se il
+ * turno è aperto da più di `maxHours` ore (non si chiude in automatico, SPEC §15.6 punto 3).
  */
-export function exitLatest<T>(table: string, name: string, fields: { Uscita: string; 'GPS Uscita'?: string }) {
-  return api<{ status: 'done' | 'alreadyClosed'; record: AirtableRecord<T> } | { status: 'noEntry'; record?: undefined }>(
-    '/presenze/exit-latest',
-    { table, name, fields }
-  );
+export function exitLatest<T>(
+  table: string,
+  name: string,
+  fields: { Uscita: string; 'GPS Uscita'?: string },
+  maxHours: number
+) {
+  return api<
+    { status: 'done' | 'alreadyClosed' | 'tooOld'; record: AirtableRecord<T> } | { status: 'noEntry'; record?: undefined }
+  >('/presenze/exit-latest', { table, name, fields, maxHours });
 }
 
 export type ExitOutcome<T> =

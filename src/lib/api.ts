@@ -4,8 +4,8 @@ import { reportError } from '@/lib/sentry';
 // Chiamate al proxy TeamTime (SPEC §18): l'app non parla più direttamente con Airtable, Telegram, Brevo e geocode e non
 // contiene nessuna chiave. Ogni operazione è un POST con corpo JSON; gli errori arrivano come { error: "codice" }.
 
-/** Senza risposta entro questo tempo la chiamata si considera fallita (connessione scarsa). */
-const TIMEOUT_MS = 30_000;
+/** Senza risposta entro questo tempo la chiamata si considera fallita (connessione scarsa, SPEC §15.6 punto 1). */
+const TIMEOUT_MS = 25_000;
 
 export class ApiError extends Error {
   constructor(
@@ -19,10 +19,10 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(path: string, body: object = {}): Promise<T> {
+export async function api<T>(path: string, body: object = {}, timeoutMs = TIMEOUT_MS): Promise<T> {
   if (!PROXY_URL) throw new ApiError('Manca EXPO_PUBLIC_PROXY_URL in .env', 0, 'config');
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   let text: string;
   try {

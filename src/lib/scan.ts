@@ -2,13 +2,15 @@ import { formatTime } from '@/lib/activities';
 import { createEntry, exitLatest, type AirtableRecord } from '@/lib/airtable';
 import { writeCache } from '@/lib/cache';
 import { DEVICE } from '@/lib/device';
-import { addRecordToHistory, companyInfo } from '@/lib/history';
+import { ApiError } from '@/lib/api';
+import { addRecordToHistory, companyInfo, localDay, today } from '@/lib/history';
 import { fetchLocale, isYes, localeCacheKey, type LocaleFields } from '@/lib/locali';
 import { getCurrentAddress, requestLocationPermission } from '@/lib/location';
+import { localePreferences } from '@/lib/preferences';
 import { log } from '@/lib/log';
 import { countScanForReview } from '@/lib/review';
 import { getSession } from '@/lib/session';
-import { clearLastScanError, getEmployeeName, saveLastScanError, type ScanError } from '@/lib/storage';
+import { clearLastScanError, getEmployeeName, getLastScanError, saveLastScanError, type ScanError } from '@/lib/storage';
 import { scanTelegramText, sendTelegram } from '@/lib/telegram';
 
 // Timbrature di entrata e uscita (SPEC §4.1 e §4.2), come i blocchi "ScriviOrario" e "Scrivi Uscita" di Thunkable.
@@ -35,14 +37,28 @@ type PresenzaFields = {
 /** Testo di avanzamento mostrato durante la timbratura (Label2 di Thunkable). */
 export type ScanStatus = (text: string) => void;
 
-export type ExitResult = { kind: 'done'; message: string } | { kind: 'alreadyOut' } | { kind: 'noEntry' };
+export type ExitResult =
+  | { kind: 'done'; message: string }
+  /** `exitToday`: orario dell'uscita se l'ultima riga è di oggi (uscita salvata ma risposta persa, §15.6 punto 9). */
+  | { kind: 'alreadyOut'; exitToday?: string }
+  | { kind: 'noEntry' }
+  /** Turno aperto da più della durata massima: non si chiude con questa uscita (§15.6 punto 3). */
+  | { kind: 'tooOld'; record: AirtableRecord<PresenzaFields> };
+
+/** Dopo un'entrata non riuscita, entro questo tempo si chiede al proxy di controllare il doppione (§15.6 punto 2). */
+const RECENT_FAILURE_MS = 15 * 60_000;
+
+/** Timbratura riuscita (anche "entrata già registrata"): il messaggio contiene "correttamente", come Scan Result. */
+export function isScanSuccess(message: string) {
+  return message.includes('correttamente');
+}
 
 /**
  * Messaggio comprensibile per il dipendente ("Scan non riuscito: motivo. Riprova"). Il messaggio tecnico resta nel log
  * e nel report per lo sviluppatore.
  */
 export function friendlyScanMessage(message: string) {
-  if (message === SCAN_MESSAGES.ok || message === SCAN_MESSAGES.entryCancelled) return message;
+  if (isScanSuccess(message) || message === SCAN_MESSAGES.entryCancelled) return message;
   if (message === SCAN_MESSAGES.connection) {
     return 'Scan non riuscito: la connessione è assente o troppo lenta. Controlla la rete e riprova.';
   }
@@ -57,7 +73,7 @@ export function friendlyScanMessage(message: string) {
  * (l'annullamento da parte del dipendente non è un errore).
  */
 export function recordScanOutcome(type: ScanError['type'], message: string) {
-  if (message === SCAN_MESSAGES.ok) {
+  if (isScanSuccess(message)) {
     clearLastScanError();
   } else if (message !== SCAN_MESSAGES.entryCancelled) {
     saveLastScanError({ type, message, at: new Date().toISOString() });
@@ -129,19 +145,26 @@ export async function registerEntry(table: string, onStatus: ScanStatus) {
 
   onStatus('Aggiornamento del database..');
   let record: AirtableRecord<PresenzaFields>;
+  // Entrata non riuscita da poco: forse era stata scritta comunque (risposta persa). Il proxy controlla prima.
+  const lastError = getLastScanError();
+  const checkRecent =
+    lastError?.type === 'Entrata' && Date.now() - new Date(lastError.at).getTime() < RECENT_FAILURE_MS;
   try {
-    const result = await createEntry<PresenzaFields>(table, {
-      Nome: name,
-      Entrata: time,
-      Device: DEVICE,
-      GPS: await gpsText(table, 'Entrata'),
-    });
+    const gps = await gpsText(table, 'Entrata');
+    const result = await createEntry<PresenzaFields>(table, { Nome: name, Entrata: time, Device: DEVICE, GPS: gps }, checkRecent);
     record = result.record;
+    if (result.duplicate) {
+      log(`[Proxy] Entrata già registrata alle ${record.fields.Entrata}: nessuna riga nuova`);
+      addRecordToHistory(table, record);
+      return `La tua entrata delle ${record.fields.Entrata ?? '—'} risulta già registrata correttamente.`;
+    }
     if (result.trimmed > 0) log(`[Proxy] Limite righe: cancellate ${result.trimmed} righe vecchie (${table})`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(`[Proxy] Errore entrata: ${message}`);
     sendTelegram(scanTelegramText(name, table, 'Entrata', `Errore: ${message}`));
+    // Nessuna risposta (rete assente o lenta): messaggio di connessione (§15.6 punto 7).
+    if (error instanceof ApiError && error.status === 0) return SCAN_MESSAGES.connection;
     return `Errore: ${message}`;
   }
   const response = responseText(record);
@@ -171,9 +194,11 @@ export async function registerExit(table: string, onStatus: ScanStatus): Promise
   const time = formatTime(new Date());
   let record: AirtableRecord<PresenzaFields>;
   try {
+    const locale = await scannedLocale(table);
     const gps = await gpsText(table, 'Uscita');
     onStatus('Aggiornamento del database..');
-    const outcome = await exitLatest<PresenzaFields>(table, name, { Uscita: time, 'GPS Uscita': gps });
+    const maxHours = localePreferences(locale).oreMaxTurno;
+    const outcome = await exitLatest<PresenzaFields>(table, name, { Uscita: time, 'GPS Uscita': gps }, maxHours);
     if (outcome.status === 'noEntry') {
       // Il bottone Uscita è sempre attivo: chi non ha nessuna riga su questa tabella riceve un avviso suo.
       log('Nessuna entrata del dipendente su questa tabella');
@@ -182,7 +207,13 @@ export async function registerExit(table: string, onStatus: ScanStatus): Promise
     if (outcome.status === 'alreadyClosed') {
       addRecordToHistory(table, outcome.record);
       log('Ultima riga del dipendente già con uscita');
-      return { kind: 'alreadyOut' };
+      const sameDay = localDay(outcome.record) === today();
+      return { kind: 'alreadyOut', exitToday: sameDay ? outcome.record.fields.Uscita : undefined };
+    }
+    if (outcome.status === 'tooOld') {
+      addRecordToHistory(table, outcome.record);
+      log(`Turno aperto da più di ${maxHours} ore: uscita non scritta`);
+      return { kind: 'tooOld', record: outcome.record };
     }
     record = outcome.record;
   } catch (error) {

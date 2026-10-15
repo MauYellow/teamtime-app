@@ -7,27 +7,27 @@ import { getSession, updateSession } from '@/lib/session';
 // Impostazioni del locale: colonna "Impostazioni" (prima "Preferenze") di Locali Approvati, testo JSON (SPEC §16).
 // Le chiavi mancanti o non valide prendono il valore predefinito. Le modifica il manager dall'area manager
 // (scheda Impostazioni). Esempio:
-// {"correzioneUscite": true, "giorniCorrezione": 7, "oreMaxTurno": 16, "richieste": true}
+// {"correzioneUscite": true, "giorniCorrezione": 7, "oreMaxTurno": 15, "richieste": true}
 
 export type LocalePreferences = {
   /** Il dipendente può inserire da solo l'uscita dei turni dimenticati "al lavoro". */
   correzioneUscite: boolean;
   /** Turni correggibili: quelli degli ultimi N giorni. */
   giorniCorrezione: number;
-  /** Durata massima di un turno corretto dal dipendente (ore). */
+  /** Durata massima di un turno (ore): uscite inserite dal dipendente e scan di uscita (SPEC §15.6 punto 3). */
   oreMaxTurno: number;
   /** Il dipendente può inviare richieste di ferie e permessi (funzione in arrivo). */
   richieste: boolean;
 };
 
 /**
- * Valori predefiniti quando la colonna è vuota: tutte le funzioni attive, 7 giorni, 16 ore (confermati dall'utente il
- * 12/10/2026 come standard per tutti i locali).
+ * Valori predefiniti quando la colonna è vuota: tutte le funzioni attive, 7 giorni, 15 ore (confermati dall'utente il
+ * 12/10/2026 come standard per tutti i locali; 15 ore invece di 16 dal 15/10/2026).
  */
 export const DEFAULT_PREFERENCES: LocalePreferences = {
   correzioneUscite: true,
   giorniCorrezione: 7,
-  oreMaxTurno: 16,
+  oreMaxTurno: 15,
   richieste: true,
 };
 

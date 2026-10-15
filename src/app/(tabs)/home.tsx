@@ -204,6 +204,17 @@ export default function HomeScreen() {
     setBusy('QR Code riconosciuto..');
     try {
       const result = await registerExit(scanned, setBusy);
+      if (result.kind === 'tooOld') {
+        // Uscita dimenticata in un giorno precedente: non si chiude con l'uscita di oggi (SPEC §15.6 punto 3).
+        setBusy(null);
+        Alert.alert(
+          'Attenzione!',
+          `Il tuo ultimo turno aperto è di ${dayLabel(result.record)} alle ${result.record.fields.Entrata ?? '—'}: non ` +
+            "può essere chiuso con un'uscita di oggi. Inserisci l'uscita di quel giorno da Gestisci oppure chiedi al tuo " +
+            'responsabile.'
+        );
+        return;
+      }
       if (result.kind !== 'done') {
         // Uscita con il QR di un'azienda mentre il turno aperto è in un'altra (SPEC §16.1, §15.6 punto 8): solo avviso.
         const elsewhere = openShiftElsewhere(myCompanies(), name, scanned);
@@ -223,7 +234,12 @@ export default function HomeScreen() {
       }
       if (result.kind === 'alreadyOut') {
         setBusy(null);
-        Alert.alert('Attenzione!', 'Risulti già uscito da lavoro. Solo il manager può modificare gli orari');
+        Alert.alert(
+          'Attenzione!',
+          result.exitToday
+            ? `La tua uscita risulta già registrata alle ${result.exitToday}. Solo il manager può modificare gli orari.`
+            : 'Risulti già uscito da lavoro. Solo il manager può modificare gli orari'
+        );
         return;
       }
       if (result.kind === 'noEntry') {
@@ -232,6 +248,10 @@ export default function HomeScreen() {
         return;
       }
       finish('Uscita', result.message);
+    } catch (error) {
+      // Errore imprevisto (SPEC §15.6 punto 12): messaggio e riga rossa in Home, come per l'entrata.
+      log(`Errore uscita: ${String(error)}`);
+      finish('Uscita', SCAN_MESSAGES.connection);
     } finally {
       setBusy(null);
     }
