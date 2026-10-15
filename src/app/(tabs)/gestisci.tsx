@@ -172,6 +172,7 @@ export default function GestisciScreen() {
           title="Uscite dimenticate"
           info={
             `Se hai dimenticato di registrare l'uscita puoi inserirla tu, entro ${preferences.giorniCorrezione} giorni. ` +
+            "I turni compaiono qui dal giorno dopo l'entrata: quello di oggi è ancora in corso. " +
             "L'uscita vale subito, il tuo responsabile la vede segnata come inserita da te e non potrai più modificarla."
           }
         />
