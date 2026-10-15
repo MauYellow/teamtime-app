@@ -359,7 +359,7 @@ function AlreadyRegistered() {
         <View style={styles.totalLabelRow}>
           <Text style={styles.totalLabel}>
             <Text style={styles.bold}>{monthLabel}</Text>
-            {tab !== 'all' && multi ? ` · ${companyName(tab)}` : ''}: Ore lavorate (in formato decimale{' '}
+            : Ore lavorate (in formato decimale{' '}
           </Text>
           <Pressable
             onPress={() => Alert.alert('Ore in formato decimale', HOURS_INFO)}
