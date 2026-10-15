@@ -11,6 +11,7 @@ const KEYS = {
   reviewScans: 'scanPerRecensione', // scansioni riuscite dall'ultima richiesta di recensione
   reviewDone: 'recensioneFatta', // 'true' dopo "Ok": non si chiede più
   reviewLogins: 'accessiPerRecensione', // accessi riusciti al Registro Online dall'ultima richiesta di recensione
+  accessiHintClosed: 'avvisoAccessiChiuso', // 'true' dopo la X sul rimando ad Accessi in Home
 } as const;
 
 const SECURE_KEYS = {
@@ -113,6 +114,15 @@ export function isReviewDone() {
 
 export function setReviewDone() {
   Storage.setItemSync(KEYS.reviewDone, 'true');
+}
+
+/** Rimando ad Accessi in Home chiuso con la X: non si mostra più. */
+export function isAccessiHintClosed() {
+  return read(KEYS.accessiHintClosed) === 'true';
+}
+
+export function closeAccessiHint() {
+  Storage.setItemSync(KEYS.accessiHintClosed, 'true');
 }
 
 /** Imposta un valore solo se la chiave è ancora vuota (usato dalla migrazione). */

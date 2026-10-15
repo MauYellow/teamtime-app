@@ -331,6 +331,7 @@ function AlreadyRegistered() {
       ? pastMonthsAll(tables, name)
       : pastMonths(shown[0] ?? null, name, getSavedHistory(shown[0] ?? null, name)?.records ?? []);
   const monthName = new Date().toLocaleDateString('it-IT', { month: 'long' });
+  const monthLabel = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)}`;
   const fetched = oldestFetch(shown, name);
   const fetchedAt = fetched ? new Date(fetched) : null;
   const status = failed
@@ -354,20 +355,22 @@ function AlreadyRegistered() {
       <CompanyTabs tables={tables} selected={tab} onSelect={setTab} />
 
       <View style={styles.totalCard}>
-        <Text style={styles.totalLabel}>
-          Ore lavorate a <Text style={styles.bold}>{monthName}</Text>
-          {tab !== 'all' && multi ? ` in ${companyName(tab)}` : ''}
-        </Text>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalValue}>{loaded ? formatEmployeeHours(monthHours) : '—'}</Text>
+        {/* "Ottobre: Ore lavorate (in formato decimale ⓘ)": l'icona spiega le ore decimali. */}
+        <View style={styles.totalLabelRow}>
+          <Text style={styles.totalLabel}>
+            <Text style={styles.bold}>{monthLabel}</Text>
+            {tab !== 'all' && multi ? ` · ${companyName(tab)}` : ''}: Ore lavorate (in formato decimale{' '}
+          </Text>
           <Pressable
-            onPress={() => Alert.alert(`Ore lavorate a ${monthName}`, HOURS_INFO)}
+            onPress={() => Alert.alert('Ore in formato decimale', HOURS_INFO)}
             accessibilityRole="button"
-            accessibilityLabel="Informazioni sulle ore"
+            accessibilityLabel="Informazioni sulle ore in formato decimale"
             hitSlop={12}>
-            <SymbolView name={{ ios: 'info.circle', android: 'info' }} tintColor={colors.primary} size={20} />
+            <SymbolView name={{ ios: 'info.circle', android: 'info' }} tintColor={colors.primary} size={16} />
           </Pressable>
+          <Text style={styles.totalLabel}>)</Text>
         </View>
+        <Text style={styles.totalValue}>{loaded ? formatEmployeeHours(monthHours) : '—'}</Text>
         {parts.length > 1 &&
           parts.map((part) => (
             <Text key={part.table} style={styles.part}>
@@ -503,7 +506,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   totalLabel: { fontSize: 14, color: colors.muted },
-  totalRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  totalLabelRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' },
   totalValue: { fontSize: 34, fontWeight: '800', color: colors.primary },
   updated: { fontSize: 12, color: colors.muted },
   refresh: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },

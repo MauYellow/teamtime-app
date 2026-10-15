@@ -224,9 +224,12 @@ export function companyInfo(table: string): LocaleFields | null {
   return readCacheEntry<LocaleFields | null>(localeCacheKey(table))?.value ?? null;
 }
 
-/** Nome della scheda: Nome del locale in Locali Approvati, altrimenti il nome della tabella. */
+/**
+ * Nome della scheda: per ora la colonna "Locale" di Locali Approvati, cioè il nome della tabella (scelta dell'utente del
+ * 15/10/2026). Dopo la pubblicazione: usare la colonna "Nome" (SPEC §16.1).
+ */
 export function companyName(table: string) {
-  return companyInfo(table)?.Nome?.trim() || table;
+  return table;
 }
 
 /**

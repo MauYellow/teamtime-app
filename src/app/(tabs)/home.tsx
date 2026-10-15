@@ -43,7 +43,15 @@ import {
   registerExit,
   SCAN_MESSAGES,
 } from '@/lib/scan';
-import { clearLastScanError, getEmployeeLocale, getEmployeeName, getLastScanError, type ScanError } from '@/lib/storage';
+import {
+  clearLastScanError,
+  closeAccessiHint,
+  getEmployeeLocale,
+  getEmployeeName,
+  getLastScanError,
+  isAccessiHintClosed,
+  type ScanError,
+} from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 
 /** Righe di "Ultime Attività" in Home. */
@@ -62,6 +70,7 @@ export default function HomeScreen() {
   /** Cambia a ogni lettura delle copie: ridisegna la schermata con i dati salvati. */
   const [, setVersion] = useState(0);
   const [historyFailed, setHistoryFailed] = useState(false);
+  const [hintClosed, setHintClosed] = useState(isAccessiHintClosed);
   const loadingHistory = useRef(false);
   const [scanError, setScanError] = useState<ScanError | null>(getLastScanError);
   const [busy, setBusy] = useState<string | null>(null);
@@ -313,16 +322,31 @@ export default function HomeScreen() {
           onPress={checkOpenShifts}
         />
       )}
-      {/* Rimando ad Accesso Dipendenti appena sopra la tab bar, con la stessa icona della scheda. */}
-      <Pressable
-        onPress={() => router.navigate('/accesso')}
-        accessibilityRole="link"
-        style={({ pressed }) => [styles.hint, pressed && styles.hintPressed]}>
-        <SymbolView name={{ ios: 'person.text.rectangle.fill', android: 'badge' }} tintColor={colors.primary} size={22} />
-        <Text style={styles.hintText}>
-          Ora puoi vedere il conteggio mensile delle tue ore in <Text style={styles.hintStrong}>Accessi</Text>
-        </Text>
-      </Pressable>
+      {/* Rimando ad Accessi appena sopra la tab bar, con la stessa icona della scheda. Con la X non si vede più. */}
+      {!hintClosed && (
+        <View style={styles.hintWrap}>
+          <Pressable
+            onPress={() => router.navigate('/accesso')}
+            accessibilityRole="link"
+            style={({ pressed }) => [styles.hint, styles.hintWithClose, pressed && styles.hintPressed]}>
+            <SymbolView name={{ ios: 'person.text.rectangle.fill', android: 'badge' }} tintColor={colors.primary} size={22} />
+            <Text style={styles.hintText}>
+              Ora puoi vedere il conteggio mensile delle tue ore in <Text style={styles.hintStrong}>Accessi</Text>
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              closeAccessiHint();
+              setHintClosed(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Chiudi avviso"
+            hitSlop={12}
+            style={styles.hintClose}>
+            <SymbolView name={{ ios: 'xmark', android: 'close' }} tintColor={colors.muted} size={16} />
+          </Pressable>
+        </View>
+      )}
       <BusyOverlay text={busy} />
       {scanner}
     </SafeAreaView>
@@ -431,6 +455,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   hintPressed: { opacity: 0.6 },
+  hintWrap: { justifyContent: 'center' },
+  hintWithClose: { paddingRight: spacing.xl },
+  hintClose: { position: 'absolute', right: spacing.md + spacing.sm, top: 0, bottom: spacing.sm, justifyContent: 'center' },
   hintAlert: { backgroundColor: '#FDECEE' },
   notice: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm + 2, borderRadius: radius.card },
   noticeText: { fontSize: 13, color: colors.text },
