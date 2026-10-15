@@ -64,6 +64,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a50bd93d-3963-48a2-a8f4-1ef677992c0d"
+      }
+    },
+    "owner": "mauyellow"
   }
 }
