@@ -3,11 +3,12 @@
 import Constants from 'expo-constants';
 
 /**
- * Versione installata, confrontata con la riga "Versione" della tabella Versione su Airtable
- * (oggi 2.98; l'app Thunkable mostrava 3.0001). Se su Airtable c'è un numero maggiore, la Splash blocca.
- * Alzare la riga su Airtable solo DOPO che la nuova versione è sugli store.
+ * Versione installata, presa da "version" di app.json (UNICO posto dove si scrive, formato a tre numeri: 4.0.1 per le
+ * correzioni, 4.1.0 per le novità; SPEC §15.4, 16/10/2026). La Splash la confronta con la riga "Versione" del foglio
+ * impostazioni (versione minima accettata): se il foglio è più recente, blocca con "Aggiorna". Alzare la riga del foglio
+ * solo DOPO che la nuova versione è disponibile su entrambi gli store.
  */
-export const APP_VERSION = 4.0;
+export const APP_VERSION: string = Constants.expoConfig?.version ?? '0.0.0';
 
 /**
  * Proxy TeamTime (SPEC §18): tutte le operazioni su Airtable, Telegram, Brevo e geocode passano dal server, che tiene
@@ -31,13 +32,7 @@ export const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? '';
 export const SETTINGS_CSV_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vTMrLJRGThz5emH7D0Awd_fIo3sU0VJyRfdyIcaksrSpx8J8d233A-qxF1k3y7iw4A_tv0g1pIf8qS-/pub?gid=1859409346&single=true&output=csv';
 /** Nomi delle righe del foglio impostazioni (colonna A). */
-export const SETTING_KEYS = { version: 'Versione', testVersion: 'Versione Test' } as const;
-
-/**
- * Build di sviluppo o di prova ("TeamTime Dev", pacchetto …teamtime.dev): il controllo versione usa la riga
- * "Versione Test" del foglio (16/10/2026), così si prova la schermata "Aggiorna" senza toccare l'app degli store.
- */
-export const IS_TEST_BUILD = __DEV__ || Constants.expoConfig?.name === 'TeamTime Dev';
+export const SETTING_KEYS = { version: 'Versione' } as const;
 
 /**
  * Ogni quante scansioni riuscite (entrate + uscite) si chiede una recensione.

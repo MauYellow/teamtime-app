@@ -12,6 +12,7 @@ import { fetchLocale, isYes, localeCacheKey } from '@/lib/locali';
 import { requestLocationPermission } from '@/lib/location';
 import { log } from '@/lib/log';
 import { updateSession } from '@/lib/session';
+import { isUpdateRequired } from '@/lib/version';
 import { syncSubscription } from '@/lib/subscription';
 import { fetchAppSettings, type AppSettings } from '@/lib/settings';
 import { getEmployeeLocale, getEmployeeName, isFirstAccess } from '@/lib/storage';
@@ -83,7 +84,7 @@ export default function SplashScreen() {
         if (!settings) removeCache('variabili');
         updateSession({ settings });
         log(`Variabili caricate: versione pubblicata ${settings?.latestVersion ?? 'n.d.'}`);
-        if (settings?.latestVersion != null && settings.latestVersion > APP_VERSION) {
+        if (isUpdateRequired(APP_VERSION, settings?.latestVersion)) {
           show({ kind: 'update' });
           return;
         }
@@ -159,7 +160,7 @@ export default function SplashScreen() {
           </View>
         )}
       </View>
-      <Text style={styles.version}>versione {APP_VERSION.toFixed(1)}</Text>
+      <Text style={styles.version}>versione {APP_VERSION}</Text>
     </SafeAreaView>
   );
 }

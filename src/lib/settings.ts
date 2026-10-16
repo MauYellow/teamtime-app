@@ -1,11 +1,12 @@
-import { IS_TEST_BUILD, SETTING_KEYS, SETTINGS_CSV_URL } from '@/config';
+import { SETTING_KEYS, SETTINGS_CSV_URL } from '@/config';
+import { parseVersion } from '@/lib/version';
 
 // Impostazioni della nuova app da una scheda Google Sheet pubblicata sul web (colonna A = nome, colonna B = valore). Vedi SPEC §1.2.
 // Si legge senza chiavi e senza chiamate ad Airtable.
 
 export type AppSettings = {
-  /** Ultima versione pubblicata (null se manca: il controllo viene saltato). */
-  latestVersion: number | null;
+  /** Versione minima accettata, es. "4.0.1" (null se manca: il controllo viene saltato). */
+  latestVersion: string | null;
 };
 
 /** Oltre questo tempo si prosegue senza il foglio, per non tenere ferma la Splash. */
@@ -60,10 +61,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const value = (name: string) =>
     rows.find((row) => row[0]?.trim().toLowerCase() === name.toLowerCase())?.[1]?.trim() || null;
 
-  // Build di prova: riga "Versione Test" (se manca, nessun controllo); app degli store: riga "Versione".
-  const row = IS_TEST_BUILD ? SETTING_KEYS.testVersion : SETTING_KEYS.version;
-  const version = Number(String(value(row) ?? '').replace(',', '.'));
-  return {
-    latestVersion: Number.isFinite(version) && version > 0 ? version : null,
-  };
+  // "4", "4.0", "4.0.1" (anche con la virgola): si tiene il testo, il confronto lo fa lib/version.ts.
+  const version = value(SETTING_KEYS.version);
+  return { latestVersion: version && parseVersion(version) ? version : null };
 }

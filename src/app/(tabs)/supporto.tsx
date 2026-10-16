@@ -76,7 +76,7 @@ export default function SupportoScreen() {
               <Text style={styles.chevron}>›</Text>
             </Pressable>
           )}
-          ListFooterComponent={<Text style={styles.version}>versione {APP_VERSION.toFixed(1)}</Text>}
+          ListFooterComponent={<Text style={styles.version}>versione {APP_VERSION}</Text>}
         />
       )}
     </SafeAreaView>
