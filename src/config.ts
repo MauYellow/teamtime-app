@@ -34,16 +34,10 @@ export const SETTINGS_CSV_URL =
 /** Nomi delle righe del foglio impostazioni (colonna A). */
 export const SETTING_KEYS = { version: 'Versione' } as const;
 
-/**
- * Ogni quante scansioni riuscite (entrate + uscite) si chiede una recensione.
- * [PROVVISORIO 16/10/2026] 2 per le prove dell'utente: RIMETTERE 20 prima della pubblicazione.
- */
-export const REVIEW_EVERY_SCANS = 2;
-/**
- * Ogni quanti accessi riusciti al Registro Online si chiede una recensione (titolari che non timbrano).
- * [PROVVISORIO 16/10/2026] 2 per le prove dell'utente: RIMETTERE 10 prima della pubblicazione.
- */
-export const REVIEW_EVERY_MANAGER_LOGINS = 2;
+/** Ogni quante scansioni riuscite (entrate + uscite) si chiede una recensione. Per provarla si può abbassare. */
+export const REVIEW_EVERY_SCANS = 20;
+/** Ogni quanti accessi riusciti al Registro Online si chiede una recensione (titolari che non timbrano). */
+export const REVIEW_EVERY_MANAGER_LOGINS = 10;
 
 /** Splash: tentativi e attesa tra un tentativo e l'altro quando Airtable non risponde (come l'originale). */
 export const SPLASH_MAX_ATTEMPTS = 5;
