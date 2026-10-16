@@ -58,7 +58,7 @@
         {
           "url": "https://de.sentry.io/",
           "organization": "teamtime-registro-presenze",
-          "project": "teamtime"
+          "project": "teamtime-app"
         }
       ]
     ],
