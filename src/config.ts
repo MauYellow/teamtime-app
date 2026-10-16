@@ -1,5 +1,7 @@
 // Configurazione centrale dell'app.
 
+import Constants from 'expo-constants';
+
 /**
  * Versione installata, confrontata con la riga "Versione" della tabella Versione su Airtable
  * (oggi 2.98; l'app Thunkable mostrava 3.0001). Se su Airtable c'è un numero maggiore, la Splash blocca.
@@ -29,12 +31,24 @@ export const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? '';
 export const SETTINGS_CSV_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vTMrLJRGThz5emH7D0Awd_fIo3sU0VJyRfdyIcaksrSpx8J8d233A-qxF1k3y7iw4A_tv0g1pIf8qS-/pub?gid=1859409346&single=true&output=csv';
 /** Nomi delle righe del foglio impostazioni (colonna A). */
-export const SETTING_KEYS = { version: 'Versione' } as const;
+export const SETTING_KEYS = { version: 'Versione', testVersion: 'Versione Test' } as const;
 
-/** Ogni quante scansioni riuscite (entrate + uscite) si chiede una recensione. Per provarla si può abbassare. */
-export const REVIEW_EVERY_SCANS = 20;
-/** Ogni quanti accessi riusciti al Registro Online si chiede una recensione (titolari che non timbrano). */
-export const REVIEW_EVERY_MANAGER_LOGINS = 10;
+/**
+ * Build di sviluppo o di prova ("TeamTime Dev", pacchetto …teamtime.dev): il controllo versione usa la riga
+ * "Versione Test" del foglio (16/10/2026), così si prova la schermata "Aggiorna" senza toccare l'app degli store.
+ */
+export const IS_TEST_BUILD = __DEV__ || Constants.expoConfig?.name === 'TeamTime Dev';
+
+/**
+ * Ogni quante scansioni riuscite (entrate + uscite) si chiede una recensione.
+ * [PROVVISORIO 16/10/2026] 2 per le prove dell'utente: RIMETTERE 20 prima della pubblicazione.
+ */
+export const REVIEW_EVERY_SCANS = 2;
+/**
+ * Ogni quanti accessi riusciti al Registro Online si chiede una recensione (titolari che non timbrano).
+ * [PROVVISORIO 16/10/2026] 2 per le prove dell'utente: RIMETTERE 10 prima della pubblicazione.
+ */
+export const REVIEW_EVERY_MANAGER_LOGINS = 2;
 
 /** Splash: tentativi e attesa tra un tentativo e l'altro quando Airtable non risponde (come l'originale). */
 export const SPLASH_MAX_ATTEMPTS = 5;

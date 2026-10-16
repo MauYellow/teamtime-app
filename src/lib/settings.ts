@@ -1,4 +1,4 @@
-import { SETTING_KEYS, SETTINGS_CSV_URL } from '@/config';
+import { IS_TEST_BUILD, SETTING_KEYS, SETTINGS_CSV_URL } from '@/config';
 
 // Impostazioni della nuova app da una scheda Google Sheet pubblicata sul web (colonna A = nome, colonna B = valore). Vedi SPEC §1.2.
 // Si legge senza chiavi e senza chiamate ad Airtable.
@@ -60,7 +60,9 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const value = (name: string) =>
     rows.find((row) => row[0]?.trim().toLowerCase() === name.toLowerCase())?.[1]?.trim() || null;
 
-  const version = Number(String(value(SETTING_KEYS.version) ?? '').replace(',', '.'));
+  // Build di prova: riga "Versione Test" (se manca, nessun controllo); app degli store: riga "Versione".
+  const row = IS_TEST_BUILD ? SETTING_KEYS.testVersion : SETTING_KEYS.version;
+  const version = Number(String(value(row) ?? '').replace(',', '.'));
   return {
     latestVersion: Number.isFinite(version) && version > 0 ? version : null,
   };
