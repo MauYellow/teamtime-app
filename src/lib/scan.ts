@@ -155,6 +155,13 @@ export async function registerEntry(table: string, onStatus: ScanStatus) {
     record = result.record;
     if (result.duplicate) {
       log(`[Proxy] Entrata già registrata alle ${record.fields.Entrata}: nessuna riga nuova`);
+      sendTelegram(
+        scanTelegramText(name, table, 'Entrata', {
+          ok: true,
+          time: record.fields.Entrata ?? time,
+          note: 'Nota: entrata già registrata al tentativo precedente (risposta persa), nessuna riga nuova',
+        })
+      );
       addRecordToHistory(table, record);
       return `La tua entrata delle ${record.fields.Entrata ?? '—'} risulta già registrata correttamente.`;
     }
@@ -162,14 +169,13 @@ export async function registerEntry(table: string, onStatus: ScanStatus) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(`[Proxy] Errore entrata: ${message}`);
-    sendTelegram(scanTelegramText(name, table, 'Entrata', `Errore: ${message}`));
+    sendTelegram(scanTelegramText(name, table, 'Entrata', { ok: false, time, error: message }));
     // Nessuna risposta (rete assente o lenta): messaggio di connessione (§15.6 punto 7).
     if (error instanceof ApiError && error.status === 0) return SCAN_MESSAGES.connection;
     return `Errore: ${message}`;
   }
-  const response = responseText(record);
-  log(`[Proxy]: ${response}`);
-  sendTelegram(scanTelegramText(name, table, 'Entrata', response));
+  log(`[Proxy]: ${responseText(record)}`);
+  sendTelegram(scanTelegramText(name, table, 'Entrata', { ok: true, time: record.fields.Entrata ?? time }));
 
   onStatus('Salvataggio dati nel dispositivo..');
   // La riga restituita da Airtable (stessa chiamata) va nella copia: Home e Accesso Dipendenti si aggiornano subito.
@@ -218,12 +224,12 @@ export async function registerExit(table: string, onStatus: ScanStatus): Promise
     record = outcome.record;
   } catch (error) {
     log(`Errore scan di uscita: ${String(error)}`);
-    sendTelegram(scanTelegramText(name, table, 'Uscita', `Errore: ${String(error)}`));
+    const message = error instanceof Error ? error.message : String(error);
+    sendTelegram(scanTelegramText(name, table, 'Uscita', { ok: false, time, error: message }));
     return { kind: 'done', message: SCAN_MESSAGES.connection };
   }
-  const response = responseText(record);
-  log(`[Proxy]: ${response}`);
-  sendTelegram(scanTelegramText(name, table, 'Uscita', response));
+  log(`[Proxy]: ${responseText(record)}`);
+  sendTelegram(scanTelegramText(name, table, 'Uscita', { ok: true, time: record.fields.Uscita ?? time }));
 
   onStatus('Salvataggio dati nel dispositivo..');
   addRecordToHistory(table, record);

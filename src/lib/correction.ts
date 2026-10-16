@@ -5,7 +5,7 @@ import { log } from '@/lib/log';
 import { type Presenza, type PresenzaFields } from '@/lib/manager';
 import type { LocalePreferences } from '@/lib/preferences';
 import { getEmployeeName } from '@/lib/storage';
-import { sendTelegram } from '@/lib/telegram';
+import { correctionTelegramText, sendTelegram } from '@/lib/telegram';
 
 // Gestisci → correzione delle uscite dimenticate dal dipendente (SPEC §16). Vale subito (nessuna approvazione).
 // Il manager la riconosce dal campo "GPS Uscita" = "Inserita dal dipendente" (nessun campo nuovo su Airtable).
@@ -90,9 +90,6 @@ export async function correctExit(table: string, record: Presenza, exit: Date): 
   addRecordToHistory(table, updated);
   const name = getEmployeeName() ?? '';
   log(`Gestisci: uscita ${time} inserita dal dipendente per ${dayLabel(record)} (${record.id})`);
-  sendTelegram(
-    `*Uscita inserita dal dipendente*: ${name} *Azienda*: ${table} *Turno*: ${dayLabel(record)} ` +
-      `${record.fields.Entrata ?? ''} → ${time}`
-  );
+  sendTelegram(correctionTelegramText(name, table, dayLabel(record), record.fields.Entrata ?? '', time));
   return 'done';
 }

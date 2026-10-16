@@ -17,7 +17,7 @@ import { syncSubscription } from '@/lib/subscription';
 import { fetchAppSettings, type AppSettings } from '@/lib/settings';
 import { getEmployeeLocale, getEmployeeName, isFirstAccess } from '@/lib/storage';
 import { openStorePage } from '@/lib/store';
-import { sendTelegram } from '@/lib/telegram';
+import { sendTelegram, startupErrorTelegramText } from '@/lib/telegram';
 import { migrateThunkableData } from '@/lib/thunkableMigration';
 import { colors, spacing } from '@/theme';
 
@@ -30,7 +30,7 @@ async function withRetries<T>(what: string, load: () => Promise<T>, onRetry: (at
       return await load();
     } catch (error) {
       log(`Errore caricamento ${what} (tentativo ${attempt}): ${String(error)}`);
-      sendTelegram(`❌ Errore Accesso App per caricamento ${what}: ${String(error)}`);
+      sendTelegram(startupErrorTelegramText(what, attempt, String(error)));
       if (attempt >= SPLASH_MAX_ATTEMPTS) throw error;
       onRetry(attempt + 1);
       await wait(SPLASH_RETRY_DELAY_MS);

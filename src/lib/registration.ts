@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import { DEVICE } from '@/lib/device';
 import { log } from '@/lib/log';
 import { saveSentCompanyRequest, type SentCompanyRequest } from '@/lib/storage';
-import { sendTelegram } from '@/lib/telegram';
+import { sendTelegram, telegramSafe } from '@/lib/telegram';
 
 // Registrazione azienda (SPEC §10): Richiedi QR Code → Quando Contattare → riga in "New QR Code" + contatto Brevo,
 // tramite il proxy (la chiave Brevo resta sul server, SPEC §18).
@@ -97,7 +97,9 @@ export async function submitRequest(request: CompanyRequest, day: Date, time: Da
   // Il proxy crea la riga e aggiunge la mail alla lista Brevo (con il suo messaggio Telegram).
   await api('/registration/submit', { fields });
   log(`Richiesta QR Code creata: ${locale}`);
-  sendTelegram(`*Nuova richiesta QR Code*: ${locale} *Quando contattare*: ${fields['Quando Contattare']}`);
+  sendTelegram(
+    ['*Nuova richiesta QR Code*', `Azienda: ${telegramSafe(locale)}`, `Quando contattare: ${telegramSafe(String(fields['Quando Contattare'] ?? '—'))}`].join('\n')
+  );
   const sent = { locale, employees: request.employees.trim(), day: formatDay(day), time: formatTime(time) };
   saveSentCompanyRequest(sent);
   return sent;
