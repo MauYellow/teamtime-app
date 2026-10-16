@@ -98,7 +98,11 @@ export async function submitRequest(request: CompanyRequest, day: Date, time: Da
   await api('/registration/submit', { fields });
   log(`Richiesta QR Code creata: ${locale}`);
   sendTelegram(
-    ['*Nuova richiesta QR Code*', `Azienda: ${telegramSafe(locale)}`, `Quando contattare: ${telegramSafe(String(fields['Quando Contattare'] ?? '—'))}`].join('\n')
+    [
+      '*Nuova richiesta QR Code*',
+      `Azienda: *${telegramSafe(locale)}*`,
+      `Quando contattare: *${telegramSafe(String(fields['Quando Contattare'] ?? '—'))}*`,
+    ].join('\n')
   );
   const sent = { locale, employees: request.employees.trim(), day: formatDay(day), time: formatTime(time) };
   saveSentCompanyRequest(sent);

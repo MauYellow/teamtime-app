@@ -6,7 +6,8 @@ import { log } from '@/lib/log';
 // Log su Telegram (canale dello sviluppatore), come nell'app originale, tramite il proxy (la chiave del bot resta sul
 // server, SPEC §18). Non blocca mai l'app.
 // [16/10/2026, privacy] Nei messaggi delle timbrature solo azienda, iniziali del dipendente, orario, dispositivo e
-// versione dell'app: niente nome intero né indirizzo GPS. Gli errori arrivano sempre, con il motivo tecnico.
+// versione dell'app: niente nome intero né indirizzo GPS. Gli errori arrivano sempre, con il motivo tecnico e la ❌.
+// Valori in grassetto, etichette normali (scelta dell'utente del 16/10/2026).
 
 export async function sendTelegram(text: string) {
   try {
@@ -31,9 +32,14 @@ export function telegramSafe(text: string) {
   return text.replace(/([_*`[])/g, '\\$1');
 }
 
+/** "Etichetta: *valore*" (valore in grassetto, già protetto). */
+function field(label: string, value: string) {
+  return `${label}: *${telegramSafe(value) || '—'}*`;
+}
+
 /** Riga fissa con dispositivo e versione dell'app. */
 function deviceLine() {
-  return `Dispositivo: ${DEVICE} · App ${APP_VERSION}`;
+  return field('Dispositivo', `${DEVICE} · App ${APP_VERSION}`);
 }
 
 export type ScanTelegram =
@@ -43,23 +49,23 @@ export type ScanTelegram =
 
 /**
  * Messaggio di una timbratura, su più righe:
- *   *Entrata registrata*            *ERRORE ENTRATA*
- *   Azienda: teamtime031            Azienda: teamtime031
- *   Dipendente: M.R.                Dipendente: M.R.
- *   Orario: 9:02                    Orario del tentativo: 9:02
- *   Dispositivo: Android · App 4.0.0 Dispositivo: Android · App 4.0.0
- *                                   Errore: Proxy /presenze/entry HTTP 502 airtable
+ *   *Entrata registrata*            ❌ *ERRORE ENTRATA*
+ *   Azienda: *teamtime031*          Azienda: *teamtime031*
+ *   Dipendente: *M.R.*              Dipendente: *M.R.*
+ *   Orario: *9:02*                  Orario del tentativo: *9:02*
+ *   Dispositivo: *Android · App 4.0.0*  Dispositivo: *Android · App 4.0.0*
+ *                                   Errore: *Proxy /presenze/entry HTTP 502 airtable*
  */
 export function scanTelegramText(name: string, table: string, kind: 'Entrata' | 'Uscita', result: ScanTelegram) {
   const lines = [
-    result.ok ? `*${kind} registrata*` : `*ERRORE ${kind.toUpperCase()}*`,
-    `Azienda: ${telegramSafe(table)}`,
-    `Dipendente: ${telegramSafe(initials(name)) || '—'}`,
-    `${result.ok ? 'Orario' : 'Orario del tentativo'}: ${result.time}`,
+    result.ok ? `*${kind} registrata*` : `❌ *ERRORE ${kind.toUpperCase()}*`,
+    field('Azienda', table),
+    field('Dipendente', initials(name)),
+    field(result.ok ? 'Orario' : 'Orario del tentativo', result.time),
     deviceLine(),
   ];
   if (result.ok && result.note) lines.push(telegramSafe(result.note));
-  if (!result.ok) lines.push(`Errore: ${telegramSafe(result.error)}`);
+  if (!result.ok) lines.push(field('Errore', result.error));
   return lines.join('\n');
 }
 
@@ -67,9 +73,9 @@ export function scanTelegramText(name: string, table: string, kind: 'Entrata' | 
 export function correctionTelegramText(name: string, table: string, shift: string, entry: string, exit: string) {
   return [
     '*Uscita inserita dal dipendente*',
-    `Azienda: ${telegramSafe(table)}`,
-    `Dipendente: ${telegramSafe(initials(name)) || '—'}`,
-    `Turno: ${telegramSafe(shift)}, ${entry || '—'} → ${exit}`,
+    field('Azienda', table),
+    field('Dipendente', initials(name)),
+    field('Turno', `${shift}, ${entry || '—'} → ${exit}`),
     deviceLine(),
   ].join('\n');
 }
@@ -77,9 +83,9 @@ export function correctionTelegramText(name: string, table: string, shift: strin
 /** Errore all'avvio dell'app (Splash), con il motivo tecnico. */
 export function startupErrorTelegramText(what: string, attempt: number, error: string) {
   return [
-    '*ERRORE AVVIO APP*',
-    `Caricamento: ${telegramSafe(what)} (tentativo ${attempt})`,
+    '❌ *ERRORE AVVIO APP*',
+    field('Caricamento', `${what} (tentativo ${attempt})`),
     deviceLine(),
-    `Errore: ${telegramSafe(error)}`,
+    field('Errore', error),
   ].join('\n');
 }
