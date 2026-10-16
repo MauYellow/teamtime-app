@@ -65,5 +65,5 @@ export const DATA_REMOVAL_FORM_URL = 'https://airtable.com/appOwBv51ihqoT7Cx/shr
 /** Area manager → "Il tuo piano": link legali e gestionale web. */
 export const PRIVACY_URL = 'https://www.teamtimeapp.it/privacy';
 /** Termini e condizioni (EULA) di TeamTime, per iOS e Android. */
-export const EULA_URL = 'https://mauyellow.github.io/app-legal/terms.html';
+export const EULA_URL = 'https://www.teamtimeapp.it/termini';
 export const PORTAL_URL = 'https://www.teamtimeapp.it/login';
