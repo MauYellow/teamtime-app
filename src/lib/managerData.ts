@@ -38,7 +38,7 @@ export async function loadManagerData(table: string, force = false) {
   if (!force && state.table === table && state.records) return;
   set({ table, loading: true, failed: false, ...(state.table !== table ? { records: null, fetchedAt: null } : {}) });
   try {
-    const records = await fetchAllPresenze(table);
+    const records = await fetchAllPresenze();
     set({ records, fetchedAt: new Date(), loading: false });
     log(`Area manager: ${records.length} presenze lette`);
   } catch (error) {

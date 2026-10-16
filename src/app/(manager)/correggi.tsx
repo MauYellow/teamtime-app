@@ -28,7 +28,7 @@ export default function CorreggiScreen() {
     log('Modifica Orari: aggiornamento lista');
     setLoading(true);
     try {
-      setRows(await fetchOpenPresenze(table));
+      setRows(await fetchOpenPresenze());
       setFetchedAt(new Date());
       setFailed(false);
     } catch (error) {

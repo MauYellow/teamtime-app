@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import * as XLSX from 'xlsx';
 
 import { formatTime } from '@/lib/activities';
-import { listRecords, setExit, type AirtableRecord } from '@/lib/airtable';
+import { listManagerRecords, setExit, type AirtableRecord } from '@/lib/airtable';
 import { api } from '@/lib/api';
 import type { LocaleFields } from '@/lib/locali';
 import { getSession } from '@/lib/session';
@@ -91,9 +91,9 @@ export function presenzaDate(record: Presenza) {
 
 // --- Correggi Orari ---
 
-/** Presenze ancora "al lavoro", le più recenti prima. [miglioria] senza distinguere maiuscole. */
-export function fetchOpenPresenze(table: string) {
-  return listRecords<PresenzaFields>(table, {
+/** Presenze ancora "al lavoro" del locale del manager, le più recenti prima. [miglioria] senza distinguere maiuscole. */
+export function fetchOpenPresenze() {
+  return listManagerRecords<PresenzaFields>(managerToken(), {
     filterByFormula: 'LOWER(TRIM({Uscita})) = "al lavoro"',
     sort: [{ field: 'Created', direction: 'desc' }],
   });
@@ -127,9 +127,9 @@ export const MONTHS = [
 
 export type Month = { key: string; month: string; year: string; label: string };
 
-/** Tutte le presenze della tabella (al massimo Max Rows righe: poche chiamate). */
-export function fetchAllPresenze(table: string) {
-  return listRecords<PresenzaFields>(table, { sort: [{ field: 'Created', direction: 'desc' }] });
+/** Tutte le presenze del locale del manager (al massimo Max Rows righe: poche chiamate). */
+export function fetchAllPresenze() {
+  return listManagerRecords<PresenzaFields>(managerToken(), { sort: [{ field: 'Created', direction: 'desc' }] });
 }
 
 function monthOf(record: Presenza): Month | null {

@@ -22,16 +22,22 @@ export function formulaString(value: string) {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-/** Righe della tabella delle presenze di un locale (il server gestisce la paginazione). */
-export async function listRecords<T>(table: string, options: ListOptions = {}): Promise<AirtableRecord<T>[]> {
-  const { records } = await api<{ records: AirtableRecord<T>[] }>('/presenze/list', { table, ...options });
+/**
+ * Righe della tabella del locale del manager (Conteggio, Calendario, Correggi Orari): servono il gettone del manager,
+ * e il proxy legge solo il suo locale (SPEC §18, 16/10/2026). Il server gestisce la paginazione.
+ */
+export async function listManagerRecords<T>(token: string, options: ListOptions = {}): Promise<AirtableRecord<T>[]> {
+  const { records } = await api<{ records: AirtableRecord<T>[] }>('/presenze/list', { token, ...options });
   return records;
 }
 
-/** Una riga per ID; errore con codice "not_found" se non esiste più. */
-export async function getRecord<T>(table: string, id: string) {
-  const { record } = await api<{ record: AirtableRecord<T> }>('/presenze/get', { table, id });
-  return record;
+/**
+ * Presenze del dipendente in una tabella: il proxy restituisce solo le righe con quel nome (senza maiuscole e spazi),
+ * dalla più recente, senza GPS.
+ */
+export async function listMyRecords<T>(table: string, name: string): Promise<AirtableRecord<T>[]> {
+  const { records } = await api<{ records: AirtableRecord<T>[] }>('/presenze/mine', { table, name });
+  return records;
 }
 
 /**

@@ -1,6 +1,6 @@
 import Storage from 'expo-sqlite/kv-store';
 
-import { formulaString, listRecords, type AirtableRecord } from '@/lib/airtable';
+import { listMyRecords, type AirtableRecord } from '@/lib/airtable';
 import { readCacheEntry, writeCache } from '@/lib/cache';
 import { fetchLocale, isYes, localeCacheKey, type LocaleFields } from '@/lib/locali';
 import { log } from '@/lib/log';
@@ -28,7 +28,6 @@ import { getActivities, getEmployeeLocale, getEmployeeName } from '@/lib/storage
 
 const KEY = 'storicoDipendente';
 const MAX_AGE_MS = 30 * 60_000;
-const FIELDS: (keyof PresenzaFields)[] = ['Nome', 'Entrata', 'Uscita', 'Created', 'Mese Nome', 'Anno', 'Giorni', 'Giorno Corretto', 'Ore Lavorate', 'ID'];
 
 /** Dalla più recente: per ID (Created è solo una data, come "2026-10-10"). Vale dentro una sola tabella. */
 function newestFirst(a: Presenza, b: Presenza) {
@@ -113,11 +112,8 @@ export function removeRecordFromHistory(table: string, id: string) {
 /** Legge da Airtable tutte le righe del dipendente in una tabella (nome senza maiuscole e spazi) e le salva. */
 export async function refreshHistory(table: string, name: string): Promise<SavedHistory> {
   log(`Copia Airtable: lettura delle presenze del dipendente (${table})`);
-  const records = await listRecords<PresenzaFields>(table, {
-    filterByFormula: `LOWER(TRIM({Nome})) = LOWER(TRIM(${formulaString(name)}))`,
-    sort: [{ field: 'ID', direction: 'desc' }],
-    fields: FIELDS,
-  });
+  // Filtro per nome, ordine e campi li decide il proxy (SPEC §18).
+  const records = await listMyRecords<PresenzaFields>(table, name);
   const saved: SavedHistory = { table, name, fetchedAt: Date.now(), records };
   Storage.setItemSync(historyKey(table), JSON.stringify(saved));
   log(`Copia Airtable: ${records.length} presenze lette (${table})`);
