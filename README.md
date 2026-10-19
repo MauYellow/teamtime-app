@@ -117,8 +117,11 @@ Valori che possono cambiare: `src/config.ts`.
       tra i tester delle licenze.
 - [x] Package Android `com.gmail.mauriziopolverini89.teamtime` e `versionCode` 93 in `app.json` (Thunkable in produzione:
       versionCode 92, versione 3.001, 12/10/2026). A ogni nuova build per lo store alzare `versionCode` di 1.
-- [x] Bundle id iOS uguale al package Android (`com.gmail.mauriziopolverini89.teamtime`). Numero di build iOS: non
-      impostato (= 1), va bene perché la versione 4.0.0 è nuova; alzarlo a ogni nuova build della stessa versione.
+- [x] Bundle id iOS uguale al package Android (`com.gmail.mauriziopolverini89.teamtime`). **Versione iOS separata**
+      (19/10/2026): Thunkable aveva pubblicato su App Store la versione "87" e Apple ha rifiutato 4.0.0 (ITMS-90062),
+      quindi `ios.version` = **100.0.0** in `app.json` (= 4.0.0; poi 4.0.1 → 100.0.1, 4.1.0 → 100.1.0). Nell'app,
+      Sentry e Telegram resta la versione a tre numeri di `version`. In App Store Connect la versione si chiama come
+      `ios.version`. `ios.buildNumber` (1) da alzare a ogni nuova build della stessa versione.
 - [x] Chiave di firma Android: la stessa di Thunkable (alias `androidkey`, SHA-1 `6A:E4:B6:AA:…:E9:2B`) in
       `credentials/android-upload.keystore` + `credentials.json` (esclusi da git, usati dal profilo EAS `production`).
       Tenerne una copia di sicurezza fuori dal PC: senza, non si possono più pubblicare aggiornamenti Android.

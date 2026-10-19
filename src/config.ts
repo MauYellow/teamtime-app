@@ -7,6 +7,8 @@ import Constants from 'expo-constants';
  * correzioni, 4.1.0 per le novità; SPEC §15.4, 16/10/2026). La Splash la confronta con la riga "Versione" del foglio
  * impostazioni (versione minima accettata): se il foglio è più recente, blocca con "Aggiorna". Alzare la riga del foglio
  * solo DOPO che la nuova versione è disponibile su entrambi gli store.
+ * Nota: su App Store la versione è "ios.version" di app.json (100.0.0 = 4.0.0), perché Thunkable aveva già pubblicato la
+ * "87" e Apple vuole numeri sempre più alti. Non cambia questo valore: dentro l'app resta la versione a tre numeri.
  */
 export const APP_VERSION: string = Constants.expoConfig?.version ?? '0.0.0';
 
