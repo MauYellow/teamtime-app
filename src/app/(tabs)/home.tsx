@@ -42,6 +42,7 @@ import {
 import { isAtWork } from '@/lib/manager';
 import { log } from '@/lib/log';
 import { showScanResult } from '@/lib/navigation';
+import { closeReferralNotice, isReferralNoticeVisible, openReferralChat } from '@/lib/referral';
 import { askReview, shouldAskReview } from '@/lib/review';
 import {
   canUseOtherLocale,
@@ -82,6 +83,7 @@ export default function HomeScreen() {
   const [historyFailed, setHistoryFailed] = useState(false);
   const [hintClosed, setHintClosed] = useState(isAccessiHintClosed);
   const [calendarHintClosed, setCalendarHintClosed] = useState(isCalendarNoticeClosed);
+  const [referralVisible, setReferralVisible] = useState(isReferralNoticeVisible);
   const loadingHistory = useRef(false);
   const [scanError, setScanError] = useState<ScanError | null>(getLastScanError);
   const [busy, setBusy] = useState<string | null>(null);
@@ -361,7 +363,8 @@ export default function HomeScreen() {
         />
       )}
       {/* Avvisi appena sopra la tab bar, uno alla volta (il più importante): report del mese da scaricare (primi 5
-          giorni del mese, SPEC §6.1), novità del calendario (4.1.0), rimando ad Accessi. Con la X non si vedono più. */}
+          giorni del mese, SPEC §6.1), novità del calendario (4.1.0), "Porta una nuova azienda" (la X lo nasconde per 60
+          giorni, SPEC §4.3), rimando ad Accessi. Con la X gli altri non si vedono più. */}
       {report ? (
         <HomeHint
           icon={{ ios: 'doc.text.fill', android: 'description' }}
@@ -386,6 +389,16 @@ export default function HomeScreen() {
           }}>
           Da oggi nella sezione <Text style={styles.hintStrong}>Accessi</Text> puoi vedere il calendario completo delle
           timbrature
+        </HomeHint>
+      ) : referralVisible ? (
+        <HomeHint
+          icon={{ ios: 'gift.fill', android: 'redeem' }}
+          onPress={() => openReferralChat(name, locale)}
+          onClose={() => {
+            closeReferralNotice();
+            setReferralVisible(false);
+          }}>
+          Porta una nuova azienda su TeamTime: per te un premio di <Text style={styles.hintStrong}>50€</Text>
         </HomeHint>
       ) : !hintClosed ? (
         <HomeHint
