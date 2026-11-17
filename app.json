@@ -23,7 +23,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.gmail.mauriziopolverini89.teamtime",
-      "versionCode": 95
+      "versionCode": 95,
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"]
     },
     "plugins": [
       "expo-router",
