@@ -362,10 +362,10 @@ export default function HomeScreen() {
           onPress={checkOpenShifts}
         />
       )}
-      {/* Avvisi appena sopra la tab bar, uno alla volta (il più importante): report del mese da scaricare (primi 5
-          giorni del mese, SPEC §6.1), novità del calendario (4.1.0), "Porta una nuova azienda" (la X lo nasconde per 60
-          giorni, SPEC §4.3), rimando ad Accessi. Con la X gli altri non si vedono più. */}
-      {report ? (
+      {/* Avvisi appena sopra la tab bar, tutti insieme uno sotto l'altro (scelta dell'utente del 17/11/2026, SPEC §4.3):
+          report del mese da scaricare (primi 5 giorni del mese, SPEC §6.1), novità del calendario (4.1.0), "Porta una
+          nuova azienda" (la X lo nasconde per 60 giorni), rimando ad Accessi. Con la X gli altri non si vedono più. */}
+      {report && (
         <HomeHint
           icon={{ ios: 'doc.text.fill', android: 'description' }}
           onPress={() =>
@@ -379,7 +379,8 @@ export default function HomeScreen() {
           {report.oldest && report.oldest.slice(8) !== '01' ? ` (timbrature dal ${shortDate(report.oldest).slice(0, -5)})` : ''}:
           scaricalo prima che le timbrature vengano cancellate
         </HomeHint>
-      ) : !calendarHintClosed ? (
+      )}
+      {!calendarHintClosed && (
         <HomeHint
           icon={{ ios: 'calendar', android: 'calendar_month' }}
           onPress={() => router.push('/calendario-dipendente')}
@@ -390,7 +391,8 @@ export default function HomeScreen() {
           Da oggi nella sezione <Text style={styles.hintStrong}>Accessi</Text> puoi vedere il calendario completo delle
           timbrature
         </HomeHint>
-      ) : referralVisible ? (
+      )}
+      {referralVisible && (
         <HomeHint
           icon={{ ios: 'gift.fill', android: 'redeem' }}
           onPress={() => openReferralChat(name, locale)}
@@ -400,7 +402,8 @@ export default function HomeScreen() {
           }}>
           Porta una nuova azienda su TeamTime: per te un premio di <Text style={styles.hintStrong}>50€</Text>
         </HomeHint>
-      ) : !hintClosed ? (
+      )}
+      {!hintClosed && (
         <HomeHint
           icon={{ ios: 'person.text.rectangle.fill', android: 'badge' }}
           onPress={() => router.navigate('/accesso')}
@@ -410,7 +413,7 @@ export default function HomeScreen() {
           }}>
           Ora puoi vedere il conteggio mensile delle tue ore in <Text style={styles.hintStrong}>Accessi</Text>
         </HomeHint>
-      ) : null}
+      )}
       <BusyOverlay text={busy} />
       {scanner}
     </SafeAreaView>
