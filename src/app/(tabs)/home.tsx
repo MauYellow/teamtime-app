@@ -42,7 +42,7 @@ import {
 import { isAtWork } from '@/lib/manager';
 import { log } from '@/lib/log';
 import { showScanResult } from '@/lib/navigation';
-import { closeReferralNotice, isReferralNoticeVisible, openReferralChat } from '@/lib/referral';
+import { openReferralChat } from '@/lib/referral';
 import { askReview, shouldAskReview } from '@/lib/review';
 import {
   canUseOtherLocale,
@@ -65,6 +65,9 @@ import {
 import { calendarMonthLabel } from '@/components/PresenceCalendar';
 import { colors, radius, spacing } from '@/theme';
 
+/** Avvisi sopra la tab bar mostrati insieme, al massimo (scelta dell'utente). */
+const MAX_HOME_HINTS = 2;
+
 /** Righe di "Ultime Attività" in Home. */
 const HOME_ROWS = 5;
 
@@ -83,7 +86,6 @@ export default function HomeScreen() {
   const [historyFailed, setHistoryFailed] = useState(false);
   const [hintClosed, setHintClosed] = useState(isAccessiHintClosed);
   const [calendarHintClosed, setCalendarHintClosed] = useState(isCalendarNoticeClosed);
-  const [referralVisible, setReferralVisible] = useState(isReferralNoticeVisible);
   const loadingHistory = useRef(false);
   const [scanError, setScanError] = useState<ScanError | null>(getLastScanError);
   const [busy, setBusy] = useState<string | null>(null);
@@ -320,6 +322,17 @@ export default function HomeScreen() {
       <LogoHeader onPress={openLogError} />
       <ScrollView contentContainerStyle={styles.content}>
         <CompanyRequestBanner />
+        {/* "Porta una nuova azienda" (SPEC §4.3): fisso tra il logo e il nome, senza X. Tocco → WhatsApp con Maurizio. */}
+        <Pressable
+          onPress={() => openReferralChat(name, locale)}
+          accessibilityRole="link"
+          style={({ pressed }) => [styles.referral, pressed && styles.hintPressed]}>
+          <SymbolView name={{ ios: 'gift.fill', android: 'redeem' }} tintColor={colors.primary} size={22} />
+          <Text style={styles.referralText}>
+            Porta una nuova azienda su TeamTime: per te un premio di <Text style={styles.hintStrong}>50€</Text>
+          </Text>
+          <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right' }} tintColor={colors.primary} size={18} />
+        </Pressable>
         <View style={styles.card}>
           <Text style={styles.label}>Nome Dipendente</Text>
           <Text style={styles.value}>{name}</Text>
@@ -362,58 +375,54 @@ export default function HomeScreen() {
           onPress={checkOpenShifts}
         />
       )}
-      {/* Avvisi appena sopra la tab bar, tutti insieme uno sotto l'altro (scelta dell'utente del 17/11/2026, SPEC §4.3):
-          report del mese da scaricare (primi 5 giorni del mese, SPEC §6.1), novità del calendario (4.1.0), "Porta una
-          nuova azienda" (la X lo nasconde per 60 giorni), rimando ad Accessi. Con la X gli altri non si vedono più. */}
-      {report && (
-        <HomeHint
-          icon={{ ios: 'doc.text.fill', android: 'description' }}
-          onPress={() =>
-            router.push({ pathname: '/calendario-dipendente', params: { mese: monthParam(report.month) } })
-          }
-          onClose={() => {
-            closeReportNotice(report.month);
-            setVersion((value) => value + 1);
-          }}>
-          Il report di <Text style={styles.hintStrong}>{reportMonthName}</Text> è pronto
-          {report.oldest && report.oldest.slice(8) !== '01' ? ` (timbrature dal ${shortDate(report.oldest).slice(0, -5)})` : ''}:
-          scaricalo prima che le timbrature vengano cancellate
-        </HomeHint>
-      )}
-      {!calendarHintClosed && (
-        <HomeHint
-          icon={{ ios: 'calendar', android: 'calendar_month' }}
-          onPress={() => router.push('/calendario-dipendente')}
-          onClose={() => {
-            closeCalendarNotice();
-            setCalendarHintClosed(true);
-          }}>
-          Da oggi nella sezione <Text style={styles.hintStrong}>Accessi</Text> puoi vedere il calendario completo delle
-          timbrature
-        </HomeHint>
-      )}
-      {referralVisible && (
-        <HomeHint
-          icon={{ ios: 'gift.fill', android: 'redeem' }}
-          onPress={() => openReferralChat(name, locale)}
-          onClose={() => {
-            closeReferralNotice();
-            setReferralVisible(false);
-          }}>
-          Porta una nuova azienda su TeamTime: per te un premio di <Text style={styles.hintStrong}>50€</Text>
-        </HomeHint>
-      )}
-      {!hintClosed && (
-        <HomeHint
-          icon={{ ios: 'person.text.rectangle.fill', android: 'badge' }}
-          onPress={() => router.navigate('/accesso')}
-          onClose={() => {
-            closeAccessiHint();
-            setHintClosed(true);
-          }}>
-          Ora puoi vedere il conteggio mensile delle tue ore in <Text style={styles.hintStrong}>Accessi</Text>
-        </HomeHint>
-      )}
+      {/* Avvisi appena sopra la tab bar, al massimo 2 insieme (scelta dell'utente del 17/11/2026, SPEC §4.3), in
+          quest'ordine: report del mese da scaricare (primi 5 giorni del mese, SPEC §6.1), novità del calendario (4.1.0),
+          rimando ad Accessi. Con la X non si vedono più. */}
+      {[
+        report && (
+          <HomeHint
+            key="report"
+            icon={{ ios: 'doc.text.fill', android: 'description' }}
+            onPress={() =>
+              router.push({ pathname: '/calendario-dipendente', params: { mese: monthParam(report.month) } })
+            }
+            onClose={() => {
+              closeReportNotice(report.month);
+              setVersion((value) => value + 1);
+            }}>
+            Il report di <Text style={styles.hintStrong}>{reportMonthName}</Text> è pronto
+            {report.oldest && report.oldest.slice(8) !== '01' ? ` (timbrature dal ${shortDate(report.oldest).slice(0, -5)})` : ''}:
+            scaricalo prima che le timbrature vengano cancellate
+          </HomeHint>
+        ),
+        !calendarHintClosed && (
+          <HomeHint
+            key="calendario"
+            icon={{ ios: 'calendar', android: 'calendar_month' }}
+            onPress={() => router.push('/calendario-dipendente')}
+            onClose={() => {
+              closeCalendarNotice();
+              setCalendarHintClosed(true);
+            }}>
+            Da oggi nella sezione <Text style={styles.hintStrong}>Accessi</Text> puoi vedere il calendario completo delle
+            timbrature
+          </HomeHint>
+        ),
+        !hintClosed && (
+          <HomeHint
+            key="accessi"
+            icon={{ ios: 'person.text.rectangle.fill', android: 'badge' }}
+            onPress={() => router.navigate('/accesso')}
+            onClose={() => {
+              closeAccessiHint();
+              setHintClosed(true);
+            }}>
+            Ora puoi vedere il conteggio mensile delle tue ore in <Text style={styles.hintStrong}>Accessi</Text>
+          </HomeHint>
+        ),
+      ]
+        .filter(Boolean)
+        .slice(0, MAX_HOME_HINTS)}
       <BusyOverlay text={busy} />
       {scanner}
     </SafeAreaView>
@@ -529,6 +538,16 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   notRegistered: { flex: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.md },
   content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
+  referral: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.card,
+    backgroundColor: '#FDECEE',
+  },
+  referralText: { flex: 1, fontSize: 14, color: colors.text },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.card,
