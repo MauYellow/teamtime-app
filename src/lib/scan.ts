@@ -39,14 +39,56 @@ export type ScanStatus = (text: string) => void;
 
 export type ExitResult =
   | { kind: 'done'; message: string }
-  /** `exitToday`: orario dell'uscita se l'ultima riga è di oggi (uscita salvata ma risposta persa, §15.6 punto 9). */
-  | { kind: 'alreadyOut'; exitToday?: string }
+  /**
+   * Ultima riga già chiusa. `exitToday`: orario dell'uscita se la riga è di oggi (§15.6 punto 9); altrimenti oggi non
+   * risulta nessuna entrata e `record` è l'ultima riga (di un altro giorno).
+   */
+  | { kind: 'alreadyOut'; exitToday?: string; record: AirtableRecord<PresenzaFields> }
   | { kind: 'noEntry' }
   /** Turno aperto da più della durata massima: non si chiude con questa uscita (§15.6 punto 3). */
   | { kind: 'tooOld'; record: AirtableRecord<PresenzaFields> };
 
 /** Dopo un'entrata non riuscita, entro questo tempo si chiede al proxy di controllare il doppione (§15.6 punto 2). */
 const RECENT_FAILURE_MS = 15 * 60_000;
+
+/**
+ * Nuovi tentativi con campo debole (17/11/2026): se il proxy non risponde (rete assente o lenta) o il servizio è
+ * momentaneamente fuori uso (502/503/504), lo scan si ripete per circa 2 minuti e mezzo prima di dare l'errore.
+ */
+const RETRY_WINDOW_MS = 150_000;
+const RETRY_DELAY_MS = 5_000;
+const RETRY_STATUSES = new Set([0, 502, 503, 504]);
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function isRetryable(error: unknown) {
+  return error instanceof ApiError && RETRY_STATUSES.has(error.status);
+}
+
+/**
+ * Esegue `attempt` e lo ripete finché riesce, l'errore non è di connessione o finisce il tempo. `attempt` riceve il
+ * numero del tentativo (dal 2 in poi la risposta del precedente può essere andata persa: va controllato il doppione).
+ */
+async function withScanRetries<T>(what: string, onStatus: ScanStatus, attempt: (number: number) => Promise<T>) {
+  const startedAt = Date.now();
+  for (let number = 1; ; number++) {
+    try {
+      const result = await attempt(number);
+      if (number > 1) log(`${what}: riuscito al tentativo ${number}`, true);
+      return result;
+    } catch (error) {
+      if (!isRetryable(error) || Date.now() - startedAt + RETRY_DELAY_MS >= RETRY_WINDOW_MS) throw error;
+      log(`${what}: connessione debole, nuovo tentativo tra 5 secondi (tentativo ${number}: ${String(error)})`, true);
+      onStatus(`Connessione debole, riprovo… (tentativo ${number + 1})`);
+      await wait(RETRY_DELAY_MS);
+    }
+  }
+}
+
+/** Esito verde con tipo e orario (17/11/2026). Contiene sempre "correttamente" (vedi `isScanSuccess`). */
+export function successMessage(kind: 'Entrata' | 'Uscita', time: string | undefined) {
+  return time ? `${kind} registrata correttamente alle ${time}` : SCAN_MESSAGES.ok;
+}
 
 /** Timbratura riuscita (anche "entrata già registrata"): il messaggio contiene "correttamente", come Scan Result. */
 export function isScanSuccess(message: string) {
@@ -147,14 +189,20 @@ export async function registerEntry(table: string, onStatus: ScanStatus) {
   let record: AirtableRecord<PresenzaFields>;
   // Entrata non riuscita da poco: forse era stata scritta comunque (risposta persa). Il proxy controlla prima.
   const lastError = getLastScanError();
-  const checkRecent =
+  const recentFailure =
     lastError?.type === 'Entrata' && Date.now() - new Date(lastError.at).getTime() < RECENT_FAILURE_MS;
   try {
     const gps = await gpsText(table, 'Entrata');
-    const result = await createEntry<PresenzaFields>(table, { Nome: name, Entrata: time, Device: DEVICE, GPS: gps }, checkRecent);
+    const fields = { Nome: name, Entrata: time, Device: DEVICE, GPS: gps };
+    log(`[Proxy] Invio entrata delle ${time} su ${table}`, true);
+    // Dal secondo tentativo si chiede sempre il controllo del doppione: il tentativo prima può essere stato scritto.
+    const result = await withScanRetries('Entrata', onStatus, (attempt) =>
+      createEntry<PresenzaFields>(table, fields, recentFailure || attempt > 1)
+    );
     record = result.record;
-    if (result.duplicate) {
-      log(`[Proxy] Entrata già registrata alle ${record.fields.Entrata}: nessuna riga nuova`);
+    // Doppione con l'orario di questo scan: è la riga scritta da un tentativo precedente, quindi un'entrata normale.
+    if (result.duplicate && record.fields.Entrata !== time) {
+      log(`[Proxy] Entrata già registrata alle ${record.fields.Entrata}: nessuna riga nuova`, true);
       sendTelegram(
         scanTelegramText(name, table, 'Entrata', {
           ok: true,
@@ -168,13 +216,13 @@ export async function registerEntry(table: string, onStatus: ScanStatus) {
     if (result.trimmed > 0) log(`[Proxy] Limite righe: cancellate ${result.trimmed} righe vecchie (${table})`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log(`[Proxy] Errore entrata: ${message}`);
+    log(`[Proxy] Errore entrata: ${message}`, true);
     sendTelegram(scanTelegramText(name, table, 'Entrata', { ok: false, time, error: message }));
     // Nessuna risposta (rete assente o lenta): messaggio di connessione (§15.6 punto 7).
     if (error instanceof ApiError && error.status === 0) return SCAN_MESSAGES.connection;
     return `Errore: ${message}`;
   }
-  log(`[Proxy]: ${responseText(record)}`);
+  log(`[Proxy]: ${responseText(record)}`, true);
   sendTelegram(scanTelegramText(name, table, 'Entrata', { ok: true, time: record.fields.Entrata ?? time }));
 
   onStatus('Salvataggio dati nel dispositivo..');
@@ -182,7 +230,7 @@ export async function registerEntry(table: string, onStatus: ScanStatus) {
   addRecordToHistory(table, record);
   countScanForReview();
   onStatus('Completato');
-  return SCAN_MESSAGES.ok;
+  return successMessage('Entrata', record.fields.Entrata ?? time);
 }
 
 /**
@@ -204,36 +252,49 @@ export async function registerExit(table: string, onStatus: ScanStatus): Promise
     const gps = await gpsText(table, 'Uscita');
     onStatus('Aggiornamento del database..');
     const maxHours = localePreferences(locale).oreMaxTurno;
-    const outcome = await exitLatest<PresenzaFields>(table, name, { Uscita: time, 'GPS Uscita': gps }, maxHours);
+    log(`[Proxy] Invio uscita delle ${time} su ${table}`, true);
+    let retried = false;
+    const outcome = await withScanRetries('Uscita', onStatus, (attempt) => {
+      retried = attempt > 1;
+      return exitLatest<PresenzaFields>(table, name, { Uscita: time, 'GPS Uscita': gps }, maxHours);
+    });
     if (outcome.status === 'noEntry') {
       // Il bottone Uscita è sempre attivo: chi non ha nessuna riga su questa tabella riceve un avviso suo.
-      log('Nessuna entrata del dipendente su questa tabella');
+      log('Nessuna entrata del dipendente su questa tabella', true);
       return { kind: 'noEntry' };
-    }
-    if (outcome.status === 'alreadyClosed') {
-      addRecordToHistory(table, outcome.record);
-      log('Ultima riga del dipendente già con uscita');
-      const sameDay = localDay(outcome.record) === today();
-      return { kind: 'alreadyOut', exitToday: sameDay ? outcome.record.fields.Uscita : undefined };
     }
     if (outcome.status === 'tooOld') {
       addRecordToHistory(table, outcome.record);
-      log(`Turno aperto da più di ${maxHours} ore: uscita non scritta`);
+      log(`Turno aperto da più di ${maxHours} ore: uscita non scritta`, true);
       return { kind: 'tooOld', record: outcome.record };
     }
+    // Dopo un nuovo tentativo, una riga già chiusa con l'orario di questo scan è l'uscita scritta dal tentativo prima.
+    const ownExit = retried && outcome.status === 'alreadyClosed' && outcome.record.fields.Uscita === time;
+    if (outcome.status === 'alreadyClosed' && !ownExit) {
+      addRecordToHistory(table, outcome.record);
+      const sameDay = localDay(outcome.record) === today();
+      log(
+        sameDay
+          ? `Ultima riga del dipendente già con uscita (oggi alle ${outcome.record.fields.Uscita ?? '—'})`
+          : `Oggi nessuna entrata: ultima riga del dipendente già chiusa ${responseText(outcome.record)}`,
+        true
+      );
+      return { kind: 'alreadyOut', exitToday: sameDay ? outcome.record.fields.Uscita : undefined, record: outcome.record };
+    }
+    if (ownExit) log('Uscita già scritta dal tentativo precedente (risposta persa)', true);
     record = outcome.record;
   } catch (error) {
-    log(`Errore scan di uscita: ${String(error)}`);
+    log(`Errore scan di uscita: ${String(error)}`, true);
     const message = error instanceof Error ? error.message : String(error);
     sendTelegram(scanTelegramText(name, table, 'Uscita', { ok: false, time, error: message }));
     return { kind: 'done', message: SCAN_MESSAGES.connection };
   }
-  log(`[Proxy]: ${responseText(record)}`);
+  log(`[Proxy]: ${responseText(record)}`, true);
   sendTelegram(scanTelegramText(name, table, 'Uscita', { ok: true, time: record.fields.Uscita ?? time }));
 
   onStatus('Salvataggio dati nel dispositivo..');
   addRecordToHistory(table, record);
   countScanForReview();
   onStatus('Completato');
-  return { kind: 'done', message: SCAN_MESSAGES.ok };
+  return { kind: 'done', message: successMessage('Uscita', record.fields.Uscita ?? time) };
 }

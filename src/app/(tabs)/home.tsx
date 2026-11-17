@@ -133,7 +133,7 @@ export default function HomeScreen() {
 
   const onEntry = async () => {
     if (!locale) return;
-    log('Cliccato "Scan Entrata"');
+    log('Cliccato "Scan Entrata"', true);
     const scanned = await scan();
     if (!scanned) return;
     log(`Scan Entrata. Valore riconosciuto: ${scanned}`);
@@ -190,7 +190,7 @@ export default function HomeScreen() {
 
   const onExit = async () => {
     if (!locale) return;
-    log('Inizializzato Scan Uscita');
+    log('Inizializzato Scan Uscita', true);
     const scanned = await scan();
     if (!scanned) return;
     log(`Riconosciuto locale scannato: ${scanned}`);
@@ -234,11 +234,15 @@ export default function HomeScreen() {
       }
       if (result.kind === 'alreadyOut') {
         setBusy(null);
+        // 17/11/2026: se l'ultima riga è di un altro giorno, oggi manca l'entrata. Prima: "Risulti già uscito da lavoro",
+        // che faceva pensare a un problema dell'uscita invece che all'entrata mancante.
         Alert.alert(
           'Attenzione!',
           result.exitToday
             ? `La tua uscita risulta già registrata alle ${result.exitToday}. Solo il manager può modificare gli orari.`
-            : 'Risulti già uscito da lavoro. Solo il manager può modificare gli orari'
+            : `Oggi non risulta la tua entrata. La tua ultima timbratura è di ${dayLabel(result.record)} (uscita alle ` +
+                `${result.record.fields.Uscita ?? '—'}). Se oggi hai già iniziato il turno, avvisa il tuo ` +
+                "responsabile per aggiungere l'entrata."
         );
         return;
       }

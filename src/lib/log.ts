@@ -21,16 +21,26 @@ function loadSaved(): string[] {
   }
 }
 
+function saveNow() {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  try {
+    Storage.setItemSync(KEY, JSON.stringify(entries));
+  } catch {
+    // il log non deve mai bloccare l'app
+  }
+}
+
 function scheduleSave() {
   if (saveTimer) return;
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    try {
-      Storage.setItemSync(KEY, JSON.stringify(entries));
-    } catch {
-      // il log non deve mai bloccare l'app
-    }
-  }, SAVE_DELAY_MS);
+  saveTimer = setTimeout(saveNow, SAVE_DELAY_MS);
+}
+
+/** Scrive subito sul telefono le righe in attesa (es. quando l'app va in background). */
+export function flushLog() {
+  if (saveTimer) saveNow();
 }
 
 /** "11/10 09:02:15" */
@@ -39,10 +49,15 @@ function stamp() {
   return `${now.getDate()}/${now.getMonth() + 1} ${now.toLocaleTimeString('it-IT')}`;
 }
 
-export function log(message: string) {
+/**
+ * Aggiunge una riga al log. `important` (17/11/2026): apertura, scan, esiti ed errori si scrivono subito sul telefono,
+ * senza il mezzo secondo di attesa, così restano anche se l'app viene chiusa o il sistema la ferma in quell'istante.
+ */
+export function log(message: string, important = false) {
   entries.unshift(`[${stamp()}] ${message}`);
   if (entries.length > MAX_ENTRIES) entries.length = MAX_ENTRIES;
-  scheduleSave();
+  if (important) saveNow();
+  else scheduleSave();
   if (__DEV__) console.log(message);
 }
 
@@ -50,4 +65,4 @@ export function getLog() {
   return [...entries];
 }
 
-log('──── Apertura app ────');
+log('──── Apertura app ────', true);

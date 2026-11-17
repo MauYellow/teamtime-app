@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { useForegroundWatcher } from '@/lib/foreground';
 import { initSentry, wrapWithSentry } from '@/lib/sentry';
 import { configurePurchases } from '@/lib/subscription';
 import { colors } from '@/theme';
@@ -12,6 +13,8 @@ initSentry();
 configurePurchases();
 
 function RootLayout() {
+  // Log del passaggio in background e del ritorno; esito dello scan non più attuale → Home (lib/foreground.ts).
+  useForegroundWatcher();
   return (
     <GestureHandlerRootView style={styles.root}>
       <StatusBar style="dark" />

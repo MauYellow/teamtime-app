@@ -23,6 +23,24 @@ import { colors, spacing } from '@/theme';
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/** Controllo della rete sulla schermata "senza internet". */
+const OFFLINE_CHECK_MS = 10_000;
+
+const NETWORK_NAMES: Partial<Record<Network.NetworkStateType, string>> = {
+  [Network.NetworkStateType.CELLULAR]: 'cellulare',
+  [Network.NetworkStateType.WIFI]: 'Wi-Fi',
+  [Network.NetworkStateType.NONE]: 'nessuna',
+  [Network.NetworkStateType.UNKNOWN]: 'sconosciuta',
+};
+
+/** "rete: cellulare, internet: non raggiungibile" */
+function networkText(state: Network.NetworkState) {
+  const type = state.type ? (NETWORK_NAMES[state.type] ?? String(state.type).toLowerCase()) : 'n.d.';
+  const internet =
+    state.isInternetReachable === true ? 'raggiungibile' : state.isInternetReachable === false ? 'non raggiungibile' : 'n.d.';
+  return `rete: ${type}, internet: ${internet}`;
+}
+
 /** Ripete un caricamento da Airtable come l'originale: fino a 5 tentativi, 10 secondi tra uno e l'altro. */
 async function withRetries<T>(what: string, load: () => Promise<T>, onRetry: (attempt: number) => void) {
   for (let attempt = 1; ; attempt++) {
@@ -64,11 +82,14 @@ export default function SplashScreen() {
       await migrateThunkableData();
       log(`Dati sul telefono: nome ${getEmployeeName() ? 'presente' : 'assente'}, azienda ${getEmployeeLocale() ?? 'assente'}`);
 
+      // 17/11/2026: stato della rete sempre nel log (prima la schermata "senza internet" non lasciava traccia).
       const network = await Network.getNetworkStateAsync();
       if (network.isConnected === false) {
+        log(`Avvio: nessuna connessione (${networkText(network)}). L'app aspetta la rete`, true);
         show({ kind: 'offline' });
         return;
       }
+      log(`Avvio: rete presente (${networkText(network)})`);
 
       try {
         // Impostazioni dal Google Sheet (gratuito, niente Airtable). Se il foglio non risponde si usa l'ultima copia
@@ -107,13 +128,17 @@ export default function SplashScreen() {
           log(locale ? `Locale riconosciuto: ${localeName}` : `Locale ${localeName} non trovato in Locali Approvati`);
           if (isYes(locale?.GPS)) await requestLocationPermission();
         }
-      } catch {
+      } catch (error) {
+        log(`Avvio non riuscito: ${String(error)}. Schermata "Riprova"`, true);
         show({ kind: 'failed' });
         return;
       }
 
       await wait(Math.max(0, SPLASH_MIN_DURATION_MS - (Date.now() - startedAt)));
-      if (!cancelled) router.replace(isFirstAccess() ? '/tutorial' : '/home');
+      if (cancelled) return;
+      const next = isFirstAccess() ? '/tutorial' : '/home';
+      log(next === '/home' ? 'Avvio completato: apertura Home' : 'Avvio completato: apertura Tutorial', true);
+      router.replace(next);
     }
 
     start();
@@ -122,17 +147,44 @@ export default function SplashScreen() {
     };
   }, [runId]);
 
-  // Offline: si riparte da soli quando torna la connessione.
+  // Offline: si riparte da soli quando torna la connessione (avviso del telefono), e in più (17/11/2026) un controllo
+  // ogni 10 secondi, perché l'avviso a volte non arriva; c'è anche il pulsante "Riprova".
   useEffect(() => {
     if (phase.kind !== 'offline') return;
+    let restarted = false;
+    const restart = (reason: string) => {
+      if (restarted) return;
+      restarted = true;
+      log(`Avvio senza rete: ${reason}, nuovo tentativo di avvio`, true);
+      setPhase({ kind: 'loading', message: 'Caricamento in corso..' });
+      setRunId((id) => id + 1);
+    };
     const subscription = Network.addNetworkStateListener((state) => {
-      if (state.isConnected) {
-        setPhase({ kind: 'loading', message: 'Caricamento in corso..' });
-        setRunId((id) => id + 1);
-      }
+      if (state.isConnected) restart(`connessione tornata (${networkText(state)})`);
     });
-    return () => subscription.remove();
+    let check = 0;
+    const timer = setInterval(async () => {
+      check++;
+      try {
+        const state = await Network.getNetworkStateAsync();
+        if (state.isConnected) restart(`connessione trovata al controllo ${check} (${networkText(state)})`);
+        // Nel log solo i primi controlli e poi uno al minuto, per non riempirlo.
+        else if (check <= 3 || check % 6 === 0) log(`Avvio senza rete: controllo ${check}, ancora nessuna connessione`);
+      } catch {
+        // si riprova al prossimo controllo
+      }
+    }, OFFLINE_CHECK_MS);
+    return () => {
+      subscription.remove();
+      clearInterval(timer);
+    };
   }, [phase.kind]);
+
+  const retryNow = () => {
+    log('Avvio senza rete: toccato "Riprova"', true);
+    setPhase({ kind: 'loading', message: 'Caricamento in corso..' });
+    setRunId((id) => id + 1);
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -145,7 +197,11 @@ export default function SplashScreen() {
 
         {phase.kind === 'loading' && <Text style={styles.message}>{phase.message}</Text>}
         {phase.kind === 'offline' && (
-          <Text style={styles.message}>Per utilizzare TeamTime è necessario collegarsi a internet</Text>
+          <View style={styles.block}>
+            <Text style={styles.message}>Per utilizzare TeamTime è necessario collegarsi a internet</Text>
+            <Text style={styles.hint}>L&apos;app riprova da sola appena torna la connessione.</Text>
+            <AppButton title="Riprova" onPress={retryNow} />
+          </View>
         )}
         {phase.kind === 'failed' && (
           <View style={styles.block}>
@@ -173,6 +229,7 @@ const styles = StyleSheet.create({
   initial: { color: colors.brand },
   animation: { width: 240, height: 200, marginVertical: spacing.md },
   message: { fontSize: 16, color: colors.text, textAlign: 'center' },
+  hint: { fontSize: 14, color: colors.muted, textAlign: 'center' },
   block: { alignItems: 'center', gap: spacing.md },
   version: { textAlign: 'center', color: colors.muted, marginBottom: spacing.md },
 });

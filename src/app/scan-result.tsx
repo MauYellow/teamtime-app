@@ -51,7 +51,8 @@ export default function ScanResultScreen() {
           style={styles.animation}
         />
         <Text style={[styles.message, !ok && styles.error]}>{friendlyScanMessage(message)}</Text>
-        <AppButton title="Torna in Home" onPress={backToHome} style={styles.button} />
+        {/* 17/11/2026: sull'esito verde "Ok, ho capito" (la timbratura è già salvata), sul rosso "Torna in Home". */}
+        <AppButton title={ok ? 'Ok, ho capito' : 'Torna in Home'} onPress={backToHome} style={styles.button} />
         {canShare &&
           (sending ? (
             <ActivityIndicator color={colors.primary} />
