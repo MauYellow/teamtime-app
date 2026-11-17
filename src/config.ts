@@ -40,6 +40,8 @@ export const SETTING_KEYS = { version: 'Versione' } as const;
 export const REVIEW_EVERY_SCANS = 20;
 /** Ogni quanti accessi riusciti al Registro Online si chiede una recensione (titolari che non timbrano). */
 export const REVIEW_EVERY_MANAGER_LOGINS = 10;
+/** Report Excel del dipendente: la recensione si chiede a un tocco su scarica/condividi sì e uno no (2°, 4°, 6°...). */
+export const REVIEW_EVERY_REPORTS = 2;
 
 /** Splash: tentativi e attesa tra un tentativo e l'altro quando Airtable non risponde (come l'originale). */
 export const SPLASH_MAX_ATTEMPTS = 5;

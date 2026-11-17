@@ -24,6 +24,7 @@ function RootLayout() {
         <Stack.Screen name="tutorial" options={{ animation: 'fade' }} />
         <Stack.Screen name="scan-result" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="log-error" />
+        <Stack.Screen name="calendario-dipendente" />
         <Stack.Screen name="informativa-cookie" />
         <Stack.Screen name="primi-passi" options={{ animation: 'fade' }} />
         <Stack.Screen name="registra-azienda" />

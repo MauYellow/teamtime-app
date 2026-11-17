@@ -84,7 +84,7 @@ npx expo-doctor
 
 ## Configurazione
 Valori che possono cambiare: `src/config.ts`.
-- `APP_VERSION` = `version` di `app.json` (oggi 4.0.1, tre numeri): confrontata con la riga `Versione` della scheda della nuova app nel file
+- `APP_VERSION` = `version` di `app.json` (oggi 4.1.0, tre numeri): confrontata con la riga `Versione` della scheda della nuova app nel file
   "TeamTime - App Settings", pubblicata sul web come CSV (`SETTINGS_CSV_URL`). Se nel foglio c'è un numero maggiore, la Splash blocca e chiede di aggiornare. Alzarlo **solo
   dopo** che la nuova versione è sugli store. **La prima scheda (vecchia app) non va mai toccata**, in particolare non
   alzare "Versione App": bloccherebbe i telefoni che non possono installare la nuova app (SPEC §15.1).

@@ -47,7 +47,6 @@ import {
   getEmployeeLocale,
   getEmployeeName,
   isFirstAccess,
-  removeEmployee,
   saveEmployee,
   setFirstAccessDone,
 } from '@/lib/storage';
@@ -58,8 +57,8 @@ const HOURS_INFO =
   'Le ore sono in formato decimale, già convertite per i calcoli del totale: 8,50 vuol dire 8 ore e mezza, non 8 ore ' +
   'e 50 minuti.\n\nAltri esempi: 7,25 = 7 ore e 15 minuti; 6,75 = 6 ore e 45 minuti.';
 const PAST_MONTHS_INFO =
-  'Per i mesi precedenti è visibile solo il totale delle ore. Il dettaglio di entrate e uscite è nel registro del ' +
-  'tuo responsabile.';
+  'Per i mesi precedenti qui è visibile solo il totale delle ore. Il dettaglio di entrate e uscite è nel Calendario ' +
+  'completo, finché le timbrature sono nel registro online: da lì puoi scaricare il report Excel di ogni mese.';
 
 type Mode = 'new' | 'registered';
 type Locale = { locale: string; status: string };
@@ -296,22 +295,10 @@ function AlreadyRegistered() {
     }, [load])
   );
 
-  const removeData = async () => {
-    log('Accesso Dipendenti: Richiesta Rimozione Dati');
-    const confirmed = await confirmAlert(
-      'Rimozione dati',
-      'Il tuo nome verrà cancellato da questo telefono e dovrai registrarti di nuovo.',
-      { confirm: 'Conferma', destructive: true }
-    );
-    if (!confirmed) return;
-    log('Accesso Dipendenti: Richiesta Rimozione Dati - Confermata');
-    removeEmployee();
-    updateSession({ locale: null });
-    await infoAlert('Dati eliminati', 'Eseguito correttamente');
-    restartFromSplash();
-  };
-
   const shown = tab === 'all' ? tables : [tab];
+  /** Calendario completo (SPEC §6.1) delle aziende della scheda selezionata. */
+  const openCalendar = () =>
+    router.push({ pathname: '/calendario-dipendente', params: { aziende: shown.join(',') } });
   const multi = tables.length > 1;
   const loaded = shown.some((table) => getSavedHistory(table, name) !== null);
   const monthRows = currentMonthOf(mergedRecords(shown, name));
@@ -393,11 +380,16 @@ function AlreadyRegistered() {
           <Text style={styles.updated}>·</Text>
           <Text style={styles.updated}>{status}</Text>
         </Pressable>
+        {/* [4.1.0] Calendario completo del dipendente (SPEC §6.1). */}
+        <Pressable
+          onPress={openCalendar}
+          accessibilityRole="link"
+          hitSlop={8}
+          style={({ pressed }) => [styles.calendarLink, pressed && styles.refreshPressed]}>
+          <SymbolView name={{ ios: 'calendar', android: 'calendar_month' }} tintColor={colors.primary} size={16} />
+          <Text style={styles.totalLabel}>Mostra Calendario Completo</Text>
+        </Pressable>
       </View>
-
-      <Pressable onPress={removeData} accessibilityRole="button">
-        <Text style={styles.link}>Richiedi la rimozione dei tuoi dati</Text>
-      </Pressable>
 
       <SectionHeader title="Ultimi accessi" info={HOURS_INFO} />
       {!loaded ? (
@@ -511,6 +503,7 @@ const styles = StyleSheet.create({
   updated: { fontSize: 12, color: colors.muted },
   refresh: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
   refreshPressed: { opacity: 0.5 },
+  calendarLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm },
   bold: { fontWeight: '700', color: colors.text },
   welcome: { fontSize: 24, fontWeight: '700', color: colors.text, textAlign: 'center' },
   sectionSpacing: { marginTop: spacing.md },

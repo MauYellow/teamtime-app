@@ -1,19 +1,22 @@
-import { Alert, Linking, Platform } from 'react-native';
+import { Alert, AppState, Linking, Platform } from 'react-native';
 
 import {
   ANDROID_PACKAGE,
   ASSISTANCE_FORM_URL,
   IOS_APP_STORE_ID,
   REVIEW_EVERY_MANAGER_LOGINS,
+  REVIEW_EVERY_REPORTS,
   REVIEW_EVERY_SCANS,
 } from '@/config';
 import { log } from '@/lib/log';
 import {
   getReviewLogins,
+  getReviewReports,
   getReviewScans,
   isReviewDone,
   setReviewDone,
   setReviewLogins,
+  setReviewReports,
   setReviewScans,
 } from '@/lib/storage';
 
@@ -99,4 +102,86 @@ export function askReview() {
     ],
     { cancelable: true, onDismiss: later }
   );
+}
+
+/** Aspetta che l'app torni in primo piano dopo l'apertura dello store (al massimo 10 minuti). */
+function waitForReturn() {
+  return new Promise<void>((resolve) => {
+    let left = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') left = true;
+      else if (left) done();
+    });
+    function done() {
+      subscription.remove();
+      timers.forEach(clearTimeout);
+      resolve();
+    }
+    // Se lo store non si apre l'app non va mai in background: si prosegue.
+    timers.push(setTimeout(() => !left && done(), 2000));
+    timers.push(setTimeout(done, 10 * 60_000));
+  });
+}
+
+/**
+ * [4.1.0, scelta dell'utente del 17/11/2026] Report Excel del dipendente: a un tocco su scarica/condividi sì e uno no
+ * (2°, 4°, 6°...), finché non ha recensito, prima del file compare la richiesta di recensione. Il file parte comunque,
+ * qualunque risposta (gli store vietano di condizionare una funzione alla recensione: il testo non lo dice). "Recensisci"
+ * apre lo store, non si chiede più da nessuna parte e il file parte al ritorno nell'app; "Non ora" e "Segnala un
+ * problema" azzerano solo il contatore dei report. Si risolve quando si può procedere con il file.
+ */
+export function askReviewBeforeReport(action: 'scaricare' | 'condividere'): Promise<void> {
+  if (isReviewDone()) return Promise.resolve();
+  const count = getReviewReports() + 1;
+  setReviewReports(count);
+  log(`Recensione: report ${count}/${REVIEW_EVERY_REPORTS}`);
+  if (count < REVIEW_EVERY_REPORTS) return Promise.resolve();
+
+  return new Promise<void>((resolve) => {
+    let answered = false;
+    const finish = (after?: Promise<void>) => {
+      if (answered) return;
+      answered = true;
+      setReviewReports(0);
+      (after ?? Promise.resolve()).then(resolve, resolve);
+    };
+    Alert.alert(
+      'Ti piace TeamTime? ⭐⭐⭐⭐⭐',
+      `Prima di ${action} il tuo report, ci lasci una recensione? Bastano pochi secondi e ci aiuti tantissimo.`,
+      [
+        {
+          text: 'Segnala un problema',
+          onPress: () => {
+            log('Recensione (report): "Segnala un problema"');
+            finish(open(ASSISTANCE_FORM_URL).then(waitForReturn));
+          },
+        },
+        {
+          text: 'Non ora',
+          style: 'cancel',
+          onPress: () => {
+            log('Recensione (report): "Non ora"');
+            finish();
+          },
+        },
+        {
+          text: 'Recensisci',
+          isPreferred: true,
+          onPress: () => {
+            log('Recensione (report): "Recensisci", apro lo store');
+            setReviewDone();
+            finish(open(reviewUrl()).then(waitForReturn));
+          },
+        },
+      ],
+      {
+        cancelable: true,
+        onDismiss: () => {
+          log('Recensione (report): chiusa senza risposta');
+          finish();
+        },
+      }
+    );
+  });
 }

@@ -9,6 +9,7 @@ const KEYS = {
   activities: 'ultimeAttivita', // JSON di Activity[]
   firstAccess: 'primoAccesso', // 'false' dopo la prima apertura di Accesso Dipendenti
   reviewScans: 'scanPerRecensione', // scansioni riuscite dall'ultima richiesta di recensione
+  reviewReports: 'reportPerRecensione', // tocchi su scarica/condividi report dall'ultima richiesta (4.1.0)
   reviewDone: 'recensioneFatta', // 'true' dopo "Ok": non si chiede più
   reviewLogins: 'accessiPerRecensione', // accessi riusciti al Registro Online dall'ultima richiesta di recensione
   accessiHintClosed: 'avvisoAccessiChiuso', // 'true' dopo la X sul rimando ad Accessi in Home
@@ -90,6 +91,14 @@ export function isFirstAccess() {
 
 export function setFirstAccessDone() {
   Storage.setItemSync(KEYS.firstAccess, 'false');
+}
+
+export function getReviewReports() {
+  return Number(read(KEYS.reviewReports)) || 0;
+}
+
+export function setReviewReports(value: number) {
+  Storage.setItemSync(KEYS.reviewReports, String(value));
 }
 
 export function getReviewScans() {

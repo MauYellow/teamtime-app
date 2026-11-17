@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -10,7 +10,7 @@ import { SectionHeader } from '@/components/SectionHeader';
 import { useTimePicker } from '@/components/TimePicker';
 import { formatTime } from '@/lib/activities';
 import { checkExit, correctableShifts, correctExit, tooOldShifts } from '@/lib/correction';
-import { confirmAlert } from '@/lib/dialogs';
+import { confirmAlert, infoAlert } from '@/lib/dialogs';
 import {
   companyInfo,
   companyName,
@@ -25,8 +25,8 @@ import {
 import { log } from '@/lib/log';
 import type { Presenza } from '@/lib/manager';
 import { localePreferences, type LocalePreferences } from '@/lib/preferences';
-import { useSession } from '@/lib/session';
-import { getEmployeeLocale, getEmployeeName } from '@/lib/storage';
+import { updateSession, useSession } from '@/lib/session';
+import { getEmployeeLocale, getEmployeeName, removeEmployee } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 
 const NOT_ACTIVE = "Questa funzione non è attiva per l'azienda in cui lavori.";
@@ -125,6 +125,23 @@ export default function GestisciScreen() {
       log(`Gestisci: errore correzione ${String(error)}`);
       Alert.alert('Uscita non salvata', 'Connessione scarsa o assente. Riprova fra pochi minuti.');
     }
+  };
+
+  /** [4.1.0] Spostata qui da Accessi (scelta dell'utente del 17/11/2026), stesso comportamento. */
+  const removeData = async () => {
+    log('Accesso Dipendenti: Richiesta Rimozione Dati');
+    const confirmed = await confirmAlert(
+      'Rimozione dati',
+      'Il tuo nome verrà cancellato da questo telefono e dovrai registrarti di nuovo.',
+      { confirm: 'Conferma', destructive: true }
+    );
+    if (!confirmed) return;
+    log('Accesso Dipendenti: Richiesta Rimozione Dati - Confermata');
+    removeEmployee();
+    updateSession({ locale: null });
+    await infoAlert('Dati eliminati', 'Eseguito correttamente');
+    // Si riparte dalla Splash, che ricarica le info del locale.
+    router.replace('/');
   };
 
   if (!locale || !name) {
@@ -240,6 +257,10 @@ export default function GestisciScreen() {
         <Text style={styles.disabled}>
           {preferences.richieste ? 'In arrivo: presto potrai chiedere ferie e permessi da qui.' : NOT_ACTIVE}
         </Text>
+
+        <Pressable onPress={removeData} accessibilityRole="button" style={styles.sectionSpacing}>
+          <Text style={styles.link}>Richiedi la rimozione dei tuoi dati</Text>
+        </Pressable>
       </ScrollView>
       <BusyOverlay text={busy} />
       {picker}
@@ -279,4 +300,5 @@ const styles = StyleSheet.create({
   refresh: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, marginTop: spacing.xs },
   updated: { fontSize: 12, color: colors.muted },
   empty: { textAlign: 'center', color: colors.muted, padding: spacing.lg, fontSize: 15 },
+  link: { color: colors.primary, fontSize: 15, textAlign: 'center', textDecorationLine: 'underline' },
 });

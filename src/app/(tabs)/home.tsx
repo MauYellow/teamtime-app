@@ -14,6 +14,15 @@ import { useQrScanner } from '@/components/QrScanner';
 import { formatTime } from '@/lib/activities';
 import { confirmAlert } from '@/lib/dialogs';
 import {
+  closeCalendarNotice,
+  closeReportNotice,
+  employeeRecords,
+  isCalendarNoticeClosed,
+  monthParam,
+  reportNotice,
+  shortDate,
+} from '@/lib/employeeReport';
+import {
   companyName,
   dayLabel,
   entryTodayIn,
@@ -52,6 +61,7 @@ import {
   isAccessiHintClosed,
   type ScanError,
 } from '@/lib/storage';
+import { calendarMonthLabel } from '@/components/PresenceCalendar';
 import { colors, radius, spacing } from '@/theme';
 
 /** Righe di "Ultime Attività" in Home. */
@@ -71,6 +81,7 @@ export default function HomeScreen() {
   const [, setVersion] = useState(0);
   const [historyFailed, setHistoryFailed] = useState(false);
   const [hintClosed, setHintClosed] = useState(isAccessiHintClosed);
+  const [calendarHintClosed, setCalendarHintClosed] = useState(isCalendarNoticeClosed);
   const loadingHistory = useRef(false);
   const [scanError, setScanError] = useState<ScanError | null>(getLastScanError);
   const [busy, setBusy] = useState<string | null>(null);
@@ -284,6 +295,9 @@ export default function HomeScreen() {
   const showCompany = tab === 'all' && tables.length > 1;
   /** Copia del proprio locale già letta (le altre aziende si aggiungono quando arrivano). */
   const loaded = oldestFetch([locale ?? ''], name) !== null || allRows.length > 0;
+  /** Report del mese precedente da scaricare (SPEC §6.1), dalle stesse copie: nessuna chiamata. */
+  const report = loaded ? reportNotice(employeeRecords(tables, name)) : null;
+  const reportMonthName = report ? calendarMonthLabel(report.month).split(' ')[0].toLowerCase() : '';
 
   if (!name || !locale) {
     return (
@@ -346,34 +360,80 @@ export default function HomeScreen() {
           onPress={checkOpenShifts}
         />
       )}
-      {/* Rimando ad Accessi appena sopra la tab bar, con la stessa icona della scheda. Con la X non si vede più. */}
-      {!hintClosed && (
-        <View style={styles.hintWrap}>
-          <Pressable
-            onPress={() => router.navigate('/accesso')}
-            accessibilityRole="link"
-            style={({ pressed }) => [styles.hint, styles.hintWithClose, pressed && styles.hintPressed]}>
-            <SymbolView name={{ ios: 'person.text.rectangle.fill', android: 'badge' }} tintColor={colors.primary} size={22} />
-            <Text style={styles.hintText}>
-              Ora puoi vedere il conteggio mensile delle tue ore in <Text style={styles.hintStrong}>Accessi</Text>
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              closeAccessiHint();
-              setHintClosed(true);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Chiudi avviso"
-            hitSlop={12}
-            style={styles.hintClose}>
-            <SymbolView name={{ ios: 'xmark', android: 'close' }} tintColor={colors.muted} size={16} />
-          </Pressable>
-        </View>
-      )}
+      {/* Avvisi appena sopra la tab bar, uno alla volta (il più importante): report del mese da scaricare (primi 5
+          giorni del mese, SPEC §6.1), novità del calendario (4.1.0), rimando ad Accessi. Con la X non si vedono più. */}
+      {report ? (
+        <HomeHint
+          icon={{ ios: 'doc.text.fill', android: 'description' }}
+          onPress={() =>
+            router.push({ pathname: '/calendario-dipendente', params: { mese: monthParam(report.month) } })
+          }
+          onClose={() => {
+            closeReportNotice(report.month);
+            setVersion((value) => value + 1);
+          }}>
+          Il report di <Text style={styles.hintStrong}>{reportMonthName}</Text> è pronto
+          {report.oldest && report.oldest.slice(8) !== '01' ? ` (timbrature dal ${shortDate(report.oldest).slice(0, -5)})` : ''}:
+          scaricalo prima che le timbrature vengano cancellate
+        </HomeHint>
+      ) : !calendarHintClosed ? (
+        <HomeHint
+          icon={{ ios: 'calendar', android: 'calendar_month' }}
+          onPress={() => router.push('/calendario-dipendente')}
+          onClose={() => {
+            closeCalendarNotice();
+            setCalendarHintClosed(true);
+          }}>
+          Da oggi nella sezione <Text style={styles.hintStrong}>Accessi</Text> puoi vedere il calendario completo delle
+          timbrature
+        </HomeHint>
+      ) : !hintClosed ? (
+        <HomeHint
+          icon={{ ios: 'person.text.rectangle.fill', android: 'badge' }}
+          onPress={() => router.navigate('/accesso')}
+          onClose={() => {
+            closeAccessiHint();
+            setHintClosed(true);
+          }}>
+          Ora puoi vedere il conteggio mensile delle tue ore in <Text style={styles.hintStrong}>Accessi</Text>
+        </HomeHint>
+      ) : null}
       <BusyOverlay text={busy} />
       {scanner}
     </SafeAreaView>
+  );
+}
+
+/** Avviso sopra la tab bar: tocco → `onPress`, X → `onClose` (come il rimando ad Accessi). */
+function HomeHint({
+  icon,
+  onPress,
+  onClose,
+  children,
+}: {
+  icon: { ios: string; android: string };
+  onPress: () => void;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.hintWrap}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="link"
+        style={({ pressed }) => [styles.hint, styles.hintWithClose, pressed && styles.hintPressed]}>
+        <SymbolView name={icon as never} tintColor={colors.primary} size={22} />
+        <Text style={styles.hintText}>{children}</Text>
+      </Pressable>
+      <Pressable
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Chiudi avviso"
+        hitSlop={12}
+        style={styles.hintClose}>
+        <SymbolView name={{ ios: 'xmark', android: 'close' }} tintColor={colors.muted} size={16} />
+      </Pressable>
+    </View>
   );
 }
 
